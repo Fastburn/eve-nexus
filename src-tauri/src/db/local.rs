@@ -166,22 +166,22 @@ pub struct LocalDb(Mutex<Connection>);
 impl LocalDb {
     /// Open (or create) the local database at `path` and run schema migrations.
     ///
-    /// If the first open attempt fails, tries WAL recovery: deletes the `-wal`
-    /// and `-shm` sidecar files that SQLite leaves behind after a crash, then
-    /// retries. This handles the common case where the sidecars are in an
-    /// inconsistent state without touching the database file itself.
+    /// Opens the database. If the file is malformed, renames it to
+    /// `local.sqlite.corrupt.<timestamp>` and starts fresh so the app
+    /// keeps working. The corrupt file is preserved for diagnosis.
     pub fn open(path: &Path) -> LocalResult<Self> {
         match Self::try_open(path) {
             Ok(db) => Ok(db),
             Err(first_err) => {
-                eprintln!("[eve-nexus] local DB open failed ({first_err}), attempting WAL recovery");
-                let mut wal = path.as_os_str().to_owned();
-                wal.push("-wal");
-                let mut shm = path.as_os_str().to_owned();
-                shm.push("-shm");
-                let _ = std::fs::remove_file(std::path::PathBuf::from(wal));
-                let _ = std::fs::remove_file(std::path::PathBuf::from(shm));
-                Self::try_open(path).map_err(|_| first_err)
+                eprintln!("[eve-nexus] local DB open failed ({first_err}) — backing up and recreating");
+                let ts = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let backup = path.with_file_name(format!("local.sqlite.corrupt.{ts}"));
+                let _ = std::fs::rename(path, &backup);
+                eprintln!("[eve-nexus] corrupt DB saved to {}", backup.display());
+                Self::try_open(path)
             }
         }
     }
@@ -189,9 +189,22 @@ impl LocalDb {
     fn try_open(path: &Path) -> LocalResult<Self> {
         let conn = Connection::open(path)?;
         conn.execute_batch(
-            "PRAGMA journal_mode = WAL;
+            "PRAGMA journal_mode = DELETE;
+             PRAGMA synchronous = FULL;
              PRAGMA foreign_keys = ON;",
         )?;
+        // Catch corruption immediately rather than surfacing it mid-operation.
+        let integrity: String = conn.query_row(
+            "PRAGMA integrity_check(1);",
+            [],
+            |r| r.get(0),
+        ).unwrap_or_else(|_| "error".into());
+        if integrity != "ok" {
+            return Err(LocalDbError::Sqlite(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
+                Some(format!("integrity_check failed: {integrity}")),
+            )));
+        }
         let db = Self(Mutex::new(conn));
         db.migrate()?;
         Ok(db)
@@ -224,6 +237,7 @@ impl LocalDb {
 
         self.conn()?.execute_batch(
             "
+            BEGIN;
             CREATE TABLE IF NOT EXISTS settings (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -400,6 +414,7 @@ impl LocalDb {
                 system_name TEXT,
                 region_id   INTEGER
             );
+            COMMIT;
             ",
         )?;
 

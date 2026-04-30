@@ -136,7 +136,10 @@ impl SdeDb {
             path,
             OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )?;
-        conn.execute_batch("PRAGMA cache_size = -8000;")?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = DELETE;
+             PRAGMA cache_size = -8000;",
+        )?;
         let db = Self(Mutex::new(conn));
         db.ensure_indexes()?;
         Ok(db)
