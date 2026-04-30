@@ -58,15 +58,13 @@ jobs:
 
       - run: npm ci
 
-      - name: Set signing environment
-        shell: bash
-        run: |
-          echo "TAURI_SIGNING_PRIVATE_KEY<<EOF" >> $GITHUB_ENV
-          echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=" >> $GITHUB_ENV
+      - name: Build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: npm run tauri build
 
-      - name: Build and publish
+      - name: Publish
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -75,6 +73,7 @@ jobs:
           # Docs: https://about.signpath.io/product/open-source
           # SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
         with:
+          tauriScript: "echo"
           tagName: ${{ github.ref_name }}
           releaseName: Eve Nexus __VERSION__
           releaseBody: |
@@ -88,4 +87,4 @@ jobs:
             > This will go away once code signing is in place.
           releaseDraft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || true }}
           prerelease: false
-          createUpdaterArtifacts: true
+          includeUpdaterJson: true
