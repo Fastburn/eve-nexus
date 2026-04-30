@@ -38,16 +38,19 @@ export function Sidebar() {
   useEffect(() => {
     const ids = targets.map((t) => t.typeId);
     if (ids.length === 0) { setTypeNames({}); return; }
-    getTypeNames(ids).then(setTypeNames).catch(() => {});
+    getTypeNames(ids).then(names => setTypeNames(prev => ({ ...prev, ...names }))).catch(() => {});
   }, [targets]);
 
   async function handleEftImport(items: EftItem[], fitName: string) {
     try {
       const id = await newPlan();
+      const namesFromImport: Record<number, string> = {};
       for (const item of items) {
         const target: BuildTarget = { typeId: item.typeId, quantity: item.quantity, structureProfileId: null };
         addTarget(target);
+        namesFromImport[item.typeId] = item.typeName;
       }
+      setTypeNames((prev) => ({ ...namesFromImport, ...prev }));
       await saveCurrent(fitName);
       setRenamingId(id);
       setRenameValue(fitName);

@@ -40,10 +40,12 @@ export function EftImportDialog({ onClose, onImport }: Props) {
   }, [eftText]);
 
   function parseFitName(): string {
-    const first = eftText.trim().split("\n")[0] ?? "";
-    const inner = first.replace(/^\[/, "").replace(/\]$/, "");
-    const parts  = inner.split(",");
-    return parts[1]?.trim() || parts[0]?.trim() || "Imported Fit";
+    const first    = eftText.trim().split("\n")[0] ?? "";
+    const inner    = first.replace(/^\[/, "").replace(/\]$/, "");
+    const parts    = inner.split(",");
+    const shipName = parts[0]?.trim() || "Imported Fit";
+    const fitName  = parts[1]?.trim();
+    return fitName ? `${shipName} — ${fitName}` : shipName;
   }
 
   function scaledQty(base: number) {
@@ -69,7 +71,6 @@ export function EftImportDialog({ onClose, onImport }: Props) {
       className="eft-backdrop"
       role="dialog"
       aria-modal="true"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="eft-dialog">
         <div className="eft-header">

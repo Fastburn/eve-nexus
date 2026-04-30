@@ -14,7 +14,6 @@ export function CharactersModal() {
       role="dialog"
       aria-modal="true"
       aria-label="Characters"
-      onClick={(e) => { if (e.target === e.currentTarget) setShow(false); }}
     >
       <div className="chars-modal">
         <div className="chars-modal-header">

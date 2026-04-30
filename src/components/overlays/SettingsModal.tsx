@@ -14,7 +14,6 @@ export function SettingsModal() {
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
-      onClick={(e) => { if (e.target === e.currentTarget) setShow(false); }}
     >
       <div className="settings-modal">
         <div className="settings-modal-header">
