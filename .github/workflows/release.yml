@@ -58,13 +58,23 @@ jobs:
 
       - run: npm ci
 
+      - name: Check signing key
+        shell: bash
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "ERROR: TAURI_SIGNING_PRIVATE_KEY is empty"
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY is set (length: ${#TAURI_SIGNING_PRIVATE_KEY})"
+          fi
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri updater signing — set these secrets in the repo settings.
-          # Generate with: cargo tauri signer generate
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # ── Windows code signing (SignPath Foundation) ────────────────────────
           # Uncomment once SignPath Foundation approves the project.
           # Docs: https://about.signpath.io/product/open-source
