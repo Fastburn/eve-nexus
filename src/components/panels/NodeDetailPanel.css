@@ -1,0 +1,501 @@
+/* ── Node Detail Panel ───────────────────────────────────────────────────────── */
+.ndp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.ndp-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+
+.ndp-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ndp-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.ndp-kind {
+  font-size: 11px;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+.ndp-kind.manufacturing { color: var(--accent); }
+.ndp-kind.reaction      { color: var(--orange); }
+.ndp-kind.invention     { color: #9b59b6; }
+.ndp-kind.buy           { color: var(--green); }
+.ndp-kind.virtualHangar { color: var(--gold); }
+
+/* ── Section ─────────────────────────────────────────────────────────────────── */
+.ndp-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.ndp-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.ndp-section-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Hub price table ─────────────────────────────────────────────────────────── */
+.ndp-hub-table {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ndp-hub-header,
+.ndp-hub-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--sp-3);
+  align-items: center;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  font-size: 11px;
+}
+
+.ndp-hub-header {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.ndp-hub-row {
+  color: var(--text-2);
+  transition: background 0.1s;
+}
+
+.ndp-hub-row:hover { background: var(--surface-2); }
+
+.ndp-hub-row-best { background: rgba(77, 157, 224, 0.06); }
+
+.ndp-hub-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ndp-hub-best-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.ndp-hub-right { text-align: right; white-space: nowrap; }
+.ndp-hub-buy   { color: var(--green); }
+.ndp-hub-sell  { color: var(--accent); }
+
+/* ── Quantity grid ───────────────────────────────────────────────────────────── */
+.ndp-qty-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.ndp-qty-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ndp-qty-label {
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ndp-qty-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ndp-qty-value.highlight { color: var(--gold); }
+.ndp-qty-value.green     { color: var(--green); }
+.ndp-qty-value.yellow    { color: var(--yellow); }
+.ndp-qty-value.muted     { color: var(--text-3); }
+
+/* ── Materials list ──────────────────────────────────────────────────────────── */
+.ndp-materials {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ndp-mat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+
+.ndp-mat-row:hover {
+  background: var(--surface-2);
+}
+
+.ndp-mat-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ndp-mat-qty {
+  font-size: 11px;
+  color: var(--text-2);
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 60px;
+}
+
+/* ── Decision override ───────────────────────────────────────────────────────── */
+.ndp-decision-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.ndp-decision-btn {
+  flex: 1;
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: all 0.1s;
+  text-align: center;
+}
+
+.ndp-decision-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.ndp-decision-btn.active-build  { border-color: var(--accent);  color: var(--accent);  background: rgba(77,157,224,0.1); }
+.ndp-decision-btn.active-buy    { border-color: var(--green);   color: var(--green);   background: rgba(76,175,107,0.1); }
+.ndp-decision-btn.active-hangar { border-color: var(--gold);    color: var(--gold);    background: rgba(200,168,75,0.1); }
+
+/* ── ME/TE controls ──────────────────────────────────────────────────────────── */
+.ndp-mete-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+.ndp-mete-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.ndp-mete-label {
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ndp-mete-input {
+  width: 100%;
+}
+
+.ndp-mete-save {
+  grid-column: span 2;
+  padding: var(--sp-2);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.ndp-mete-save:hover { background: var(--accent-hover); }
+
+/* ── System cost index ───────────────────────────────────────────────────────── */
+.ndp-sci {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.ndp-sci-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ndp-sci-system {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ndp-sci-index {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+}
+
+.ndp-sci-ok   { background: rgba(76,175,107,0.12); color: var(--green); }
+.ndp-sci-warn { background: rgba(230,126,34,0.12); color: var(--orange); }
+
+.ndp-sci-effective {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.ndp-sci-flag {
+  font-size: 11px;
+  color: var(--orange);
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(230,126,34,0.08);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--orange);
+}
+
+.ndp-sci-alts {
+  margin-top: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.ndp-sci-alts-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: var(--sp-2);
+}
+
+.ndp-sci-alt-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 2px 0;
+  color: var(--text-2);
+}
+
+.ndp-sci-alt-idx { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.ndp-sci-alt-current { color: var(--accent); font-weight: 600; }
+
+/* ── Buy vs Build ────────────────────────────────────────────────────────────── */
+.ndp-bvb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.ndp-bvb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.ndp-bvb-label {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.ndp-bvb-val {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ndp-bvb-verdict {
+  margin-top: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ndp-bvb-verdict-build {
+  background: rgba(76,175,107,0.12);
+  color: var(--green);
+  border: 1px solid rgba(76,175,107,0.25);
+}
+
+.ndp-bvb-verdict-buy {
+  background: rgba(230,126,34,0.12);
+  color: var(--orange);
+  border: 1px solid rgba(230,126,34,0.25);
+}
+
+.ndp-bvb-switch {
+  margin-top: var(--sp-1);
+  width: 100%;
+  padding: var(--sp-2);
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.1s;
+}
+
+.ndp-bvb-switch-buy {
+  border: 1px solid var(--orange);
+  color: var(--orange);
+  background: rgba(230,126,34,0.08);
+}
+
+.ndp-bvb-switch-buy:hover {
+  background: rgba(230,126,34,0.18);
+}
+
+.ndp-bvb-switch-build {
+  border: 1px solid var(--green);
+  color: var(--green);
+  background: rgba(76,175,107,0.08);
+}
+
+.ndp-bvb-switch-build:hover {
+  background: rgba(76,175,107,0.18);
+}
+
+.ndp-bvb-nodata {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Invention details ───────────────────────────────────────────────────────── */
+.ndp-invention-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.ndp-invention-stat:last-child { border-bottom: none; }
+.ndp-invention-stat span:last-child { color: var(--text); font-weight: 500; }
+
+.ndp-warn { color: var(--orange) !important; }
+.ndp-good { color: var(--green)  !important; }
+
+/* ── Invention improvement tips ──────────────────────────────────────────────── */
+.ndp-invention-tips {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  border-left: 3px solid #9b59b6;
+}
+
+.ndp-inv-tip-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #9b59b6;
+  margin-bottom: var(--sp-2);
+}
+
+.ndp-inv-tip-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: 0;
+  margin: 0;
+}
+
+.ndp-inv-tip-list li {
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.6;
+  padding-left: var(--sp-3);
+  position: relative;
+}
+
+.ndp-inv-tip-list li::before {
+  content: "·";
+  position: absolute;
+  left: var(--sp-1);
+  color: var(--text-3);
+}
+
+.ndp-inv-tip-list strong { color: var(--text); }
+.ndp-inv-tip-list em     { color: var(--accent); font-style: normal; }
+
+.ndp-inv-tip-sublist {
+  list-style: none;
+  padding: var(--sp-1) 0 0 var(--sp-3);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ndp-inv-tip-sublist li {
+  font-size: 11px;
+  color: var(--text-2);
+  padding-left: var(--sp-3);
+}
+
+.ndp-inv-tip-sublist li::before {
+  content: "–";
+  color: var(--text-3);
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
+.ndp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 160px;
+  padding: var(--sp-6) var(--sp-4);
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.5;
+}

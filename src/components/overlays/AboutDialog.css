@@ -1,0 +1,236 @@
+/* ── About Dialog ─────────────────────────────────────────────────────────── */
+.about-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--sp-4);
+}
+
+.about-dialog {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 2);
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.about-dialog-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.about-dialog-footer {
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.about-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  text-align: center;
+}
+
+.about-logo-img {
+  /* Wide horizontal lockup — let natural aspect ratio show, cap the height */
+  height: 80px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.about-versions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.about-version {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+.about-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.about-body > p {
+  color: var(--text);
+}
+
+.about-legal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  border-left: 2px solid var(--border);
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.about-legal strong {
+  color: var(--text-2);
+}
+
+/* ── Maintainer ──────────────────────────────────────────────────────────── */
+.about-maintainer {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+}
+
+.about-maintainer-label {
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.about-maintainer-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Open source ─────────────────────────────────────────────────────────── */
+.about-oss {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  border-left: 2px solid var(--border);
+}
+
+.about-oss-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.about-oss-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.about-oss-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.about-oss-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-oss-entry {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: 11px;
+}
+
+.about-oss-name {
+  color: var(--text);
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.about-oss-version {
+  color: var(--text-3);
+  font-size: 10px;
+  min-width: 40px;
+}
+
+.about-oss-license {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+/* ── Bug report ──────────────────────────────────────────────────────────── */
+.about-bugreport {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.about-markee {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.about-bugreport-link {
+  color: var(--accent);
+  transition: opacity 0.15s;
+}
+.about-bugreport-link:hover { opacity: 0.8; text-decoration: underline; }
+
+/* ── License line ────────────────────────────────────────────────────────── */
+.about-license {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.about-license strong {
+  color: var(--text-2);
+}
+
+/* ── Close button ────────────────────────────────────────────────────────── */
+.about-close {
+  align-self: flex-end;
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+
+.about-close:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+  background: var(--surface-3);
+}

@@ -1,0 +1,89 @@
+/* ── Update banner ───────────────────────────────────────────────────────────── */
+.update-banner {
+  position: fixed;
+  top: var(--toolbar-h);
+  left: var(--sidebar-w);
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  background: #1a2e1a;
+  border-bottom: 1px solid #2a4a2a;
+}
+
+.update-banner-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--green);
+}
+
+.update-banner-text strong {
+  font-weight: 600;
+}
+
+.update-banner-progress {
+  flex: 1;
+  max-width: 280px;
+}
+
+.update-banner-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: var(--sp-1);
+}
+
+.update-banner-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.update-banner-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 2px;
+  transition: width 0.15s;
+}
+
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.update-banner-install-btn {
+  padding: var(--sp-1) var(--sp-4);
+  background: var(--green);
+  color: #000;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.update-banner-install-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.update-banner-install-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.update-banner-dismiss {
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: 12px;
+  transition: color 0.1s;
+}
+
+.update-banner-dismiss:hover {
+  color: var(--text-2);
+}

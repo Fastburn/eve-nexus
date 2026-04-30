@@ -1,0 +1,557 @@
+/* ── Settings Panel ───────────────────────────────────────────────────────── */
+.sp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* ── Theme picker ────────────────────────────────────────────────────────── */
+.sp-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+}
+
+.sp-theme-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-1);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sp-theme-swatch:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-2);
+}
+
+.sp-theme-swatch.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.sp-theme-preview {
+  width: 100%;
+  height: 28px;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  display: block;
+}
+
+.sp-theme-preview-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  display: block;
+}
+
+.sp-theme-label {
+  font-size: 10px;
+  color: var(--text-2);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sp-theme-swatch.active .sp-theme-label {
+  color: var(--accent);
+}
+
+/* ── Section ─────────────────────────────────────────────────────────────── */
+.sp-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.sp-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.sp-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.sp-section-title-row .sp-section-title {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* ── Analytics toggle ────────────────────────────────────────────────────── */
+.sp-analytics-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.sp-analytics-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sp-analytics-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sp-analytics-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.sp-toggle {
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  min-width: 40px;
+  text-align: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.sp-toggle:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.sp-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ── Structure profile list ──────────────────────────────────────────────── */
+.sp-new-profile-btn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+
+.sp-new-profile-btn:hover {
+  background: var(--surface-2);
+}
+
+.sp-profile-empty {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.sp-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.sp-profile-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.sp-profile-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sp-profile-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-profile-meta {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* kept for backwards compat — same as .sp-row-actions */
+.sp-profile-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+
+.sp-btn-sm {
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+
+.sp-btn-sm:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.sp-btn-remove:hover {
+  color: var(--red) !important;
+  border-color: var(--red) !important;
+}
+
+.sp-btn-danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.sp-btn-danger:hover {
+  background: rgba(231, 76, 60, 0.12);
+}
+
+.sp-confirm-label {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── Rename generic profile actions → generic row actions ────────────────── */
+.sp-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+
+/* ── Empty note ──────────────────────────────────────────────────────────── */
+.sp-empty-note {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* ── Generic item list (hangar, blacklist, overrides) ────────────────────── */
+.sp-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.sp-item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.sp-item-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sp-qty-input {
+  width: 60px;
+  padding: 2px var(--sp-2);
+  text-align: right;
+  font-size: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.sp-qty-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.sp-override-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--surface-3);
+  padding: 2px 5px;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+
+/* ── Profile editor ──────────────────────────────────────────────────────── */
+.sp-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.sp-editor-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.sp-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.sp-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+.sp-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.sp-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sp-input,
+.sp-select {
+  width: 100%;
+  padding: var(--sp-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+  transition: border-color 0.1s;
+}
+
+.sp-input:focus,
+.sp-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.sp-hint {
+  font-size: 10px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.sp-hint a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* ── Rig bonus table ─────────────────────────────────────────────────────── */
+.sp-add-rig-btn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+
+.sp-add-rig-btn:hover {
+  background: var(--surface-2);
+}
+
+.sp-rig-empty {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: var(--sp-2) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.sp-rig-empty-tip {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.sp-rig-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.sp-rig-header {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px 24px;
+  gap: var(--sp-2);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 0 var(--sp-1);
+}
+
+.sp-rig-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px 24px;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.sp-rig-input {
+  padding: var(--sp-1) var(--sp-2) !important;
+}
+
+.sp-rig-remove {
+  font-size: 16px;
+  color: var(--text-3);
+  line-height: 1;
+  text-align: center;
+  border-radius: var(--radius);
+  transition: color 0.1s;
+}
+
+.sp-rig-remove:hover {
+  color: var(--red);
+}
+
+/* ── Editor action buttons ───────────────────────────────────────────────── */
+.sp-editor-actions {
+  display: flex;
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}
+
+.sp-btn-save {
+  flex: 1;
+  padding: var(--sp-2);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.sp-btn-save:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.sp-btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sp-btn-cancel {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.sp-btn-cancel:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+/* ── Solar system field ─────────────────────────────────────────────────────── */
+.sp-clear-system {
+  margin-top: var(--sp-1);
+  font-size: 11px;
+  color: var(--text-3);
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.sp-clear-system:hover { color: var(--red); }
+
+/* ── Profile cost badge ─────────────────────────────────────────────────────── */
+.sp-cost-badge {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(76,175,107,0.10);
+  color: var(--green);
+}
+
+.sp-cost-badge-warn {
+  background: rgba(230,126,34,0.10);
+  color: var(--orange);
+}
+
+/* ── Hub type toggle row ──────────────────────────────────────────────────── */
+.sp-toggle-row {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.sp-toggle-btn {
+  flex: 1;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.sp-toggle-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.sp-toggle-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+

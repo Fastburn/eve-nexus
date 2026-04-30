@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Eve Nexus",
+  "version": "0.0.1-beta.2",
+  "identifier": "io.evenexus.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Eve Nexus",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 700
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCNTg3NkU3NEI4N0Q0QTgKUldTbzFJZEw1M1pZeTd1Vzc4TkxxS3d2YTAxd3pHS2JmN3ZaYzlsZzlzTkpWWUNQYmVuWk1HVWgK",
+      "endpoints": [
+        "https://github.com/fastburn/eve-nexus/releases/latest/download/latest.json"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "windows": {
+      "nsis": {
+        "installMode": "both",
+        "headerImage": "nsis/installer-header.bmp",
+        "sidebarImage": "nsis/installer-sidebar.bmp",
+        "installerHooks": "nsis/hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "preRemoveScript": "scripts/pre-remove.sh"
+      },
+      "rpm": {
+        "preRemoveScript": "scripts/pre-remove.sh"
+      }
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

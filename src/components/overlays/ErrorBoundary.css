@@ -1,0 +1,124 @@
+.eb-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--bg, #0d1117);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 9999;
+}
+
+.eb-box {
+  background: var(--surface-1, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 12px;
+  padding: 48px 40px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.eb-icon {
+  font-size: 32px;
+  color: var(--red, #e74c3c);
+  line-height: 1;
+}
+
+.eb-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text, #e6edf3);
+  letter-spacing: -0.02em;
+}
+
+.eb-body {
+  font-size: 13px;
+  color: var(--text-2, #8b949e);
+  line-height: 1.6;
+  max-width: 340px;
+}
+
+.eb-details {
+  width: 100%;
+  text-align: left;
+}
+
+.eb-summary {
+  font-size: 11px;
+  color: var(--text-3, #484f58);
+  cursor: pointer;
+  user-select: none;
+}
+
+.eb-trace {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--surface-2, #1c2128);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--red, #e74c3c);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.eb-report-label {
+  font-size: 12px;
+  color: var(--text-3, #484f58);
+}
+
+.eb-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.eb-link-gh,
+.eb-link-discord {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.eb-link-gh {
+  background: var(--surface-2, #1c2128);
+  border: 1px solid var(--border, #30363d);
+  color: var(--text, #e6edf3);
+}
+.eb-link-gh:hover {
+  border-color: var(--text-3, #484f58);
+}
+
+.eb-link-discord {
+  background: rgba(88, 101, 242, 0.15);
+  border: 1px solid rgba(88, 101, 242, 0.35);
+  color: #7289da;
+}
+.eb-link-discord:hover {
+  background: rgba(88, 101, 242, 0.22);
+}
+
+.eb-reload {
+  margin-top: 4px;
+  padding: 9px 24px;
+  background: var(--accent, #4d9de0);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.eb-reload:hover {
+  background: var(--accent-hover, #6ab0e8);
+}

@@ -1,0 +1,310 @@
+/* ── Monitoring Panel ─────────────────────────────────────────────────────── */
+.mp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ── Empty / loading / error state ──────────────────────────────────────── */
+.mp-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-6) 0;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+.mp-error {
+  color: var(--red);
+}
+
+.mp-error-detail {
+  font-size: 11px;
+  color: var(--text-3);
+  max-width: 220px;
+  word-break: break-word;
+}
+
+.mp-retry {
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.mp-retry:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+/* ── Slot utilisation ────────────────────────────────────────────────────── */
+.mp-slots-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.mp-slots-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mp-slots-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.mp-slots-idle-total {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.mp-slots-idle-total.has-idle {
+  color: var(--yellow);
+  font-weight: 600;
+  cursor: help;
+}
+
+.mp-char-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.mp-char-slots + .mp-char-slots {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}
+
+.mp-char-slots-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.mp-char-no-skills {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--orange);
+  background: rgba(230, 126, 34, 0.12);
+  border: 1px solid rgba(230, 126, 34, 0.25);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  cursor: help;
+}
+
+.mp-char-slots-total {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 2px solid var(--border);
+}
+
+.mp-char-slots-total .mp-char-slots-name {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.mp-slot-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 36px auto;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: help;
+}
+
+.mp-slot-label {
+  font-size: 11px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.mp-slot-track {
+  height: 5px;
+  background: var(--surface-3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mp-slot-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+
+.mp-slot-fill.full  { background: var(--green); }
+.mp-slot-fill.empty { background: transparent; }
+
+.mp-slot-count {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mp-slot-count.mp-slot-idle { color: var(--yellow); }
+.mp-slot-count.mp-slot-full { color: var(--green); }
+
+.mp-slot-idle-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--yellow);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.mp-slot-tip {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ── Summary bar ─────────────────────────────────────────────────────────── */
+.mp-summary {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.mp-summary-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.mp-summary-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.mp-summary-value.mp-done-val {
+  color: var(--green);
+}
+
+.mp-summary-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+/* ── Section ─────────────────────────────────────────────────────────────── */
+.mp-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.mp-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Job list ────────────────────────────────────────────────────────────── */
+.mp-job-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.mp-job-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+
+.mp-job-row:hover {
+  background: var(--surface-2);
+}
+
+.mp-job-row-done {
+  opacity: 0.5;
+}
+
+.mp-job-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mp-job-type-id {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-job-meta {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.mp-job-char {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* ── Countdown ───────────────────────────────────────────────────────────── */
+.mp-countdown {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-countdown.mp-done   { color: var(--green); }
+.mp-countdown.mp-urgent { color: var(--red); }
+.mp-countdown.mp-soon   { color: var(--yellow); }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.mp-footer {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}

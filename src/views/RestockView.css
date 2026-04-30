@@ -1,0 +1,350 @@
+/* ── Restock View ─────────────────────────────────────────────────────────── */
+.rst {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.rst-scroll {
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── State ────────────────────────────────────────────────────────────────── */
+.rst-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.rst-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.rst-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rst-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rst-subtitle {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.rst-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+/* ── Margin threshold ─────────────────────────────────────────────────────── */
+.rst-margin-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: 12px;
+}
+
+.rst-margin-label {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.rst-margin-input {
+  width: 52px;
+  padding: 3px var(--sp-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+  text-align: right;
+}
+
+.rst-margin-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.rst-margin-unit {
+  color: var(--text-3);
+}
+
+.rst-refresh-btn {
+  font-size: 16px;
+  color: var(--text-3);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius);
+  transition: color 0.1s, background 0.1s;
+  line-height: 1;
+}
+
+.rst-refresh-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+/* ── Add section ──────────────────────────────────────────────────────────── */
+.rst-add-section {
+  /* TypePicker lives here */
+}
+
+.rst-add-row .type-picker input {
+  width: 100%;
+  max-width: 320px;
+}
+
+.rst-pending {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.rst-pending-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rst-pending-label {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.rst-pending-qty {
+  width: 72px;
+  padding: 3px var(--sp-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+  text-align: right;
+}
+
+.rst-pending-qty:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.rst-btn-confirm {
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.rst-btn-confirm:hover {
+  background: var(--accent-hover);
+}
+
+.rst-btn-cancel {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+  transition: border-color 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+
+.rst-btn-cancel:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.rst-empty {
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.8;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.rst-empty p { margin: 0; }
+
+/* ── Item list ────────────────────────────────────────────────────────────── */
+.rst-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rst-list-header,
+.rst-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px 80px 110px 80px 32px;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.rst-list-header {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--sp-2);
+  margin-bottom: 2px;
+}
+
+.rst-row {
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+
+.rst-row:hover {
+  background: var(--surface-2);
+}
+
+.rst-row.rst-row-deficit {
+  /* subtle left accent for deficit rows */
+}
+
+/* ── Row columns ──────────────────────────────────────────────────────────── */
+.rst-row-name {
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rst-col-center { text-align: center; }
+.rst-col-right  { text-align: right; }
+.rst-col-actions { display: flex; justify-content: center; }
+
+.rst-qty {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.rst-deficit {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.rst-deficit.has-deficit {
+  font-weight: 700;
+  color: var(--red);
+}
+
+.rst-price {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.rst-margin {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.rst-margin.ok  { color: var(--green); }
+.rst-margin.low { color: var(--orange); }
+
+/* ── Target qty edit ─────────────────────────────────────────────────────── */
+.rst-qty-btn {
+  font-size: 12px;
+  color: var(--text-2);
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: border-color 0.1s, color 0.1s;
+  width: 100%;
+  text-align: center;
+}
+
+.rst-qty-btn:hover {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.rst-qty-edit {
+  width: 100%;
+  padding: 2px var(--sp-1);
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+  text-align: center;
+}
+
+.rst-qty-edit:focus { outline: none; }
+
+/* ── Export buttons ───────────────────────────────────────────────────────── */
+.rst-export-group {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.rst-export-btn {
+  font-size: 11px;
+  font-weight: 500;
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-2);
+  white-space: nowrap;
+  transition: color 0.1s, border-color 0.1s;
+}
+.rst-export-btn:hover:not(:disabled) { color: var(--text); border-color: var(--text-3); }
+.rst-export-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Remove button ───────────────────────────────────────────────────────── */
+.rst-remove-btn {
+  font-size: 15px;
+  color: var(--text-3);
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: var(--radius);
+  transition: color 0.1s;
+}
+
+.rst-remove-btn:hover {
+  color: var(--red);
+}

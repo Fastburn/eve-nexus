@@ -1,0 +1,229 @@
+/* ── Characters Panel ─────────────────────────────────────────────────────── */
+.cp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ── Actions row ─────────────────────────────────────────────────────────── */
+.cp-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.cp-add-btn {
+  flex: 1;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.cp-add-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.cp-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cp-refresh-all-btn {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.cp-refresh-all-btn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.cp-refresh-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Error / hint ────────────────────────────────────────────────────────── */
+.cp-error {
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--red);
+}
+
+.cp-hint {
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(77, 157, 224, 0.08);
+  border: 1px solid rgba(77, 157, 224, 0.2);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.cp-loading,
+.cp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-6) 0;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ── Character list ──────────────────────────────────────────────────────── */
+.cp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.cp-char-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+/* ── Portrait ────────────────────────────────────────────────────────────── */
+.cp-portrait {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.cp-portrait-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ── Info ────────────────────────────────────────────────────────────────── */
+.cp-char-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cp-char-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-char-id {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* ── Per-character actions ───────────────────────────────────────────────── */
+.cp-char-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-shrink: 0;
+}
+
+.cp-btn {
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+
+.cp-btn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.cp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cp-btn-remove:hover {
+  color: var(--red) !important;
+  border-color: var(--red) !important;
+}
+
+.cp-btn-danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.cp-btn-danger:hover {
+  background: rgba(231, 76, 60, 0.12);
+}
+
+.cp-confirm-label {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-right: var(--sp-1);
+}
+
+/* ── Corp assets mode selector ───────────────────────────────────────────── */
+.cp-corp-mode {
+  display: flex;
+  gap: 2px;
+  margin-top: var(--sp-1);
+}
+
+.cp-corp-btn {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  background: var(--surface-2);
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+
+.cp-corp-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-2);
+}
+
+.cp-corp-btn.active {
+  background: rgba(77, 157, 224, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Footer note ─────────────────────────────────────────────────────────── */
+.cp-footer-note {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}

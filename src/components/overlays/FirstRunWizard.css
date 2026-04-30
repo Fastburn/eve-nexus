@@ -1,0 +1,219 @@
+.wizard-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: var(--sp-4);
+}
+
+.wizard-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 2);
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 420px;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.wizard-header {
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.wizard-logo {
+  height: 48px;
+  width: auto;
+}
+
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.wizard-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s;
+}
+
+.wizard-step-dot.active {
+  background: var(--accent);
+  transform: scale(1.25);
+}
+
+.wizard-step-dot.done {
+  background: var(--green);
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+.wizard-body {
+  flex: 1;
+  padding: var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.wizard-step-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.wizard-step-body {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.65;
+  flex: 1;
+}
+
+.wizard-step-body p + p {
+  margin-top: var(--sp-3);
+}
+
+.wizard-step-body strong {
+  color: var(--text);
+}
+
+.wizard-step-body ul {
+  margin-top: var(--sp-2);
+  padding-left: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.wizard-char-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  margin-top: var(--sp-2);
+}
+
+.wizard-char-portrait {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.wizard-char-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+
+.wizard-char-check {
+  color: var(--green);
+  font-size: 16px;
+}
+
+.wizard-add-btn {
+  margin-top: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  align-self: flex-start;
+  transition: background 0.15s;
+}
+
+.wizard-add-btn:hover { background: var(--accent-hover); }
+.wizard-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Analytics step ──────────────────────────────────────────────────────── */
+.wizard-analytics-btns {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+
+.wizard-analytics-yes {
+  flex: 1;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.wizard-analytics-yes:hover { background: var(--accent-hover); }
+
+.wizard-analytics-no {
+  flex: 1;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: border-color 0.15s, color 0.15s;
+}
+.wizard-analytics-no:hover { border-color: var(--border-hover); color: var(--text); }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.wizard-footer {
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wizard-skip {
+  font-size: 12px;
+  color: var(--text-3);
+  transition: color 0.15s;
+}
+.wizard-skip:hover { color: var(--text-2); }
+
+.wizard-nav {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.wizard-back {
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: border-color 0.15s, color 0.15s;
+}
+.wizard-back:hover { border-color: var(--border-hover); color: var(--text); }
+
+.wizard-next {
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.wizard-next:hover { background: var(--accent-hover); }

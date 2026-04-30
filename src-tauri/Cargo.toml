@@ -1,0 +1,63 @@
+[package]
+name = "eve-nexus"
+version = "0.0.1"
+description = "Eve Nexus — EVE Online industry supply chain optimizer"
+authors = []
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "eve_nexus_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database (SDE + local state)
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# ESI HTTP client + SDE downloads
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], default-features = false }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# OS keychain — ESI token storage
+keyring = "3"
+
+# Checksum verification for SDE downloads
+sha2 = "0.10"
+
+# Stream utilities for chunked HTTP downloads
+futures-util = "0.3"
+
+# ZIP extraction for CCP SDE downloads
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+# Timestamps for ESI cache expiry
+chrono = { version = "0.4", features = ["serde"] }
+
+# PKCE random bytes for OAuth2 flow
+rand = "0.8"
+
+# Base64url encoding for PKCE code challenge
+base64 = "0.22"
+
+# URL percent-encoding for ESI search queries
+urlencoding = "2"
+

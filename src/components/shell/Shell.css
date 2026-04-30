@@ -1,0 +1,120 @@
+/* ── Shell layout ───────────────────────────────────────────────────────────── */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--toolbar-h) 1fr var(--statusbar-h);
+  grid-template-areas:
+    "sidebar toolbar"
+    "sidebar main"
+    "statusbar statusbar";
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* When right panel is open, add a third column. */
+.shell.panel-open {
+  grid-template-columns: var(--sidebar-w) 1fr var(--right-panel-w);
+  grid-template-areas:
+    "sidebar toolbar    panel"
+    "sidebar main       panel"
+    "statusbar statusbar statusbar";
+}
+
+.shell-sidebar    { grid-area: sidebar; }
+.shell-toolbar    { grid-area: toolbar; }
+.shell-main       { grid-area: main;   overflow: hidden; position: relative; display: flex; flex-direction: column; }
+.shell-panel      { grid-area: panel;  overflow: hidden; }
+.shell-statusbar  { grid-area: statusbar; }
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+.shell-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4);
+  background: var(--surface-1);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-3);
+  user-select: none;
+}
+
+.shell-statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.shell-statusbar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.shell-statusbar-dot-ok     { background: var(--green); }
+.shell-statusbar-dot-warn   { background: var(--orange); }
+.shell-statusbar-dot-error  { background: var(--red); }
+.shell-statusbar-dot-muted  { background: var(--text-3); }
+
+/* ── Solve error banner ──────────────────────────────────────────────────── */
+.shell-warning-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: rgba(230, 126, 34, 0.12);
+  border-bottom: 1px solid rgba(230, 126, 34, 0.3);
+  flex-shrink: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.shell-warning-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--orange);
+}
+
+.shell-error-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: rgba(231, 76, 60, 0.12);
+  border-bottom: 1px solid rgba(231, 76, 60, 0.3);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.shell-error-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--red);
+}
+
+.shell-error-report {
+  font-size: 11px;
+  color: var(--red);
+  opacity: 0.7;
+  text-decoration: underline;
+  flex-shrink: 0;
+  transition: opacity 0.1s;
+}
+.shell-error-report:hover { opacity: 1; }
+
+.shell-error-dismiss {
+  font-size: 16px;
+  color: var(--red);
+  opacity: 0.7;
+  padding: 0 var(--sp-1);
+  line-height: 1;
+  transition: opacity 0.1s;
+  flex-shrink: 0;
+}
+
+.shell-error-dismiss:hover {
+  opacity: 1;
+}

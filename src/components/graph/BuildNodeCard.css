@@ -1,0 +1,145 @@
+/* ── Build Node Card ─────────────────────────────────────────────────────────── */
+
+.bn-card {
+  width: 240px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  font-size: 12px;
+}
+
+.bn-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+.bn-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* ── Kind colour stripe at the top ──────────────────────────────────────────── */
+.bn-card-stripe {
+  height: 3px;
+}
+
+.bn-card.kind-manufacturing .bn-card-stripe { background: var(--accent); }
+.bn-card.kind-reaction      .bn-card-stripe { background: var(--orange); }
+.bn-card.kind-invention     .bn-card-stripe { background: #9b59b6; }
+.bn-card.kind-buy           .bn-card-stripe { background: var(--green); }
+.bn-card.kind-virtualHangar .bn-card-stripe { background: var(--gold); }
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.bn-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.bn-card-icon {
+  flex-shrink: 0;
+}
+
+.bn-card-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.bn-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bn-card-kind {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
+/* ── Improvement hint dots ───────────────────────────────────────────────────── */
+.bn-hint-dot {
+  font-size: 7px;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.bn-hint-dot.orange { color: var(--orange); }
+.bn-hint-dot.yellow { color: var(--yellow); }
+
+.bn-card.kind-manufacturing .bn-card-kind { color: var(--accent);  opacity: 0.8; }
+.bn-card.kind-reaction      .bn-card-kind { color: var(--orange);  opacity: 0.8; }
+.bn-card.kind-invention     .bn-card-kind { color: #9b59b6;        opacity: 0.8; }
+.bn-card.kind-buy           .bn-card-kind { color: var(--green);   opacity: 0.8; }
+.bn-card.kind-virtualHangar .bn-card-kind { color: var(--gold);    opacity: 0.8; }
+
+/* ── Stats row ───────────────────────────────────────────────────────────────── */
+.bn-card-stats {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.bn-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 40px;
+}
+
+.bn-stat-label {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.bn-stat-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bn-stat-value.highlight { color: var(--gold); }
+.bn-stat-value.muted     { color: var(--text-3); }
+
+/* ── To-buy indicator ────────────────────────────────────────────────────────── */
+.bn-card-footer {
+  padding: var(--sp-1) var(--sp-3) var(--sp-2);
+  font-size: 10px;
+  color: var(--text-3);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.bn-footer-stat {
+  display: flex;
+  gap: 4px;
+}
+
+.bn-footer-stat span:first-child {
+  color: var(--text-3);
+}
+
+.bn-footer-stat span:last-child {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.bn-footer-stat.buy-flag span:last-child  { color: var(--green); }
+.bn-footer-stat.prog-flag span:last-child { color: var(--yellow); }

@@ -1,0 +1,281 @@
+/* ── Grid View ────────────────────────────────────────────────────────────── */
+.gv {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Empty / loading state ───────────────────────────────────────────────── */
+.gv-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--sp-3);
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: center;
+}
+
+.gv-spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: gv-spin 0.7s linear infinite;
+}
+
+@keyframes gv-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Profit summary bar ──────────────────────────────────────────────────── */
+.gv-profit-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.gv-profit-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gv-profit-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.gv-profit-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.gv-profit-sep {
+  font-size: 14px;
+  color: var(--text-3);
+  padding-top: 10px;
+  flex-shrink: 0;
+}
+
+.gv-profit-margin {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  background: rgba(0,0,0,0.2);
+  margin-left: var(--sp-1);
+  white-space: nowrap;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+
+.gv-profit-pos { color: var(--green) !important; }
+.gv-profit-neg { color: var(--red) !important; }
+
+.gv-profit-spacer { flex: 1; }
+
+.gv-profit-fetching {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.gv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.gv-filter {
+  flex: 1;
+  max-width: 320px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.gv-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.gv-count {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-left: auto;
+}
+
+.gv-export-btn {
+  font-size: 11px;
+  font-weight: 500;
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-2);
+  white-space: nowrap;
+  transition: color 0.1s, border-color 0.1s;
+}
+.gv-export-btn:hover:not(:disabled) { color: var(--text); border-color: var(--text-3); }
+.gv-export-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Scroll container ────────────────────────────────────────────────────── */
+.gv-scroll {
+  flex: 1;
+  overflow: auto;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.gv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.gv-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.1s;
+}
+
+.gv-th:hover,
+.gv-th.gv-th-active {
+  color: var(--text);
+}
+
+.gv-th-left  { text-align: left; }
+.gv-th-right { text-align: right; }
+
+.gv-sort-arrow {
+  color: var(--accent);
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+.gv-row {
+  cursor: pointer;
+  transition: background 0.08s;
+}
+
+.gv-row:hover {
+  background: var(--surface-2);
+}
+
+.gv-td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.gv-td-right {
+  text-align: right;
+}
+
+.gv-td-name {
+  max-width: 260px;
+}
+
+.gv-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.gv-name-wrap .type-icon {
+  flex-shrink: 0;
+}
+
+.gv-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 500;
+  min-width: 0;
+}
+
+/* ── Kind badge ──────────────────────────────────────────────────────────── */
+.gv-kind {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.gv-kind-manufacturing { background: rgba(77,157,224,0.15); color: var(--accent); }
+.gv-kind-reaction      { background: rgba(230,126,34,0.15); color: var(--orange); }
+.gv-kind-invention     { background: rgba(155,89,182,0.15); color: #9b59b6; }
+.gv-kind-buy           { background: rgba(76,175,107,0.15); color: var(--green); }
+.gv-kind-have          { background: rgba(76,175,107,0.08); color: var(--text-muted); }
+.gv-kind-short         { background: rgba(230,126,34,0.15); color: var(--orange); }
+.gv-kind-virtualHangar { background: rgba(200,168,75,0.15); color: var(--gold); }
+
+/* ── Value colours ───────────────────────────────────────────────────────── */
+.gv-highlight  { color: var(--gold) !important; }
+.gv-green      { color: var(--green) !important; }
+.gv-yellow     { color: var(--yellow) !important; }
+.gv-muted      { color: var(--text-3) !important; }
+.gv-sell-price { color: var(--accent); }
+
+/* ── Buy vs Build badges ─────────────────────────────────────────────────── */
+.gv-bvb-build,
+.gv-bvb-buy {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Build is cheaper — green: keep building */
+.gv-bvb-build {
+  background: rgba(76,175,107,0.12);
+  color: var(--green);
+}
+
+/* Buy is cheaper — orange: consider switching */
+.gv-bvb-buy {
+  background: rgba(230,126,34,0.12);
+  color: var(--orange);
+}

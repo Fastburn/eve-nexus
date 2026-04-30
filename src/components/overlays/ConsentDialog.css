@@ -1,0 +1,75 @@
+/* ── Consent dialog ──────────────────────────────────────────────────────────── */
+.consent-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.consent-dialog {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6);
+  max-width: 420px;
+  width: 90%;
+}
+
+.consent-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: var(--sp-4);
+}
+
+.consent-body {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.7;
+  margin-bottom: var(--sp-6);
+}
+
+.consent-body p + p {
+  margin-top: var(--sp-3);
+}
+
+.consent-body strong {
+  color: var(--text);
+}
+
+.consent-actions {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: flex-end;
+}
+
+.consent-decline {
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  transition: color 0.1s, background 0.1s;
+}
+
+.consent-decline:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.consent-accept {
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  transition: background 0.15s;
+}
+
+.consent-accept:hover {
+  background: var(--accent-hover);
+}

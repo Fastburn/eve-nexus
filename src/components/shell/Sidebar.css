@@ -1,0 +1,309 @@
+/* ── Sidebar ─────────────────────────────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  height: var(--toolbar-h);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: var(--sp-1);
+}
+
+.sidebar-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.sidebar-logo-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-logo-img {
+  /* Natural aspect ratio of the horizontal lockup (117×54 ≈ 2.17:1).
+     Constrain by height so it never overflows the header, and let width follow. */
+  height: 42px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────────── */
+.sidebar-actions {
+  padding: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.sidebar-new-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.sidebar-new-btn:hover {
+  background: var(--accent-hover);
+}
+
+.sidebar-import-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-top: var(--sp-2);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.sidebar-import-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+/* ── Plan list ──────────────────────────────────────────────────────────────── */
+.sidebar-section-label {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.sidebar-plans {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+
+/* ── Targets section ────────────────────────────────────────────────────────── */
+.sidebar-targets {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-target-picker {
+  padding: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.sidebar-target-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+
+.sidebar-target-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  transition: background 0.1s;
+}
+
+.sidebar-target-item:hover {
+  background: var(--surface-2);
+}
+
+.sidebar-target-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-target-name {
+  font-size: 11px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-target-profile {
+  font-size: 10px;
+  color: var(--text-3);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-target-profile:focus {
+  outline: none;
+  color: var(--text);
+}
+
+.sidebar-target-qty {
+  width: 48px;
+  text-align: center;
+  padding: 2px 4px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.sidebar-target-remove {
+  font-size: 14px;
+  color: var(--text-3);
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+
+.sidebar-target-remove:hover {
+  color: var(--red);
+}
+
+.sidebar-targets-browse {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 11px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+
+.sidebar-targets-browse:hover {
+  color: var(--accent-hover);
+}
+
+.sidebar-plan-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  gap: var(--sp-2);
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.sidebar-plan-item:hover {
+  background: var(--surface-2);
+}
+
+.sidebar-plan-item.active {
+  background: var(--surface-3);
+  color: var(--accent);
+}
+
+.sidebar-plan-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  cursor: default;
+}
+
+.sidebar-plan-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1px 4px;
+  color: var(--text);
+  outline: none;
+}
+
+.sidebar-plan-dirty {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+
+.sidebar-plan-delete {
+  opacity: 0;
+  color: var(--text-3);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--radius);
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.sidebar-plan-item:hover .sidebar-plan-delete {
+  opacity: 1;
+}
+
+.sidebar-plan-delete:hover {
+  color: var(--red);
+}
+
+.sidebar-empty {
+  padding: var(--sp-3);
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* ── Header / footer buttons (icon-only in header) ──────────────────────────── */
+.sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: 11px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.sidebar-footer-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.sidebar-footer-btn.active {
+  color: var(--accent);
+  background: var(--surface-2);
+}

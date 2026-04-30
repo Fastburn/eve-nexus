@@ -1,0 +1,152 @@
+/* ── Graph View ──────────────────────────────────────────────────────────────── */
+.graph-view {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg);
+  position: relative;
+}
+
+/* Override React Flow defaults to match EVE theme */
+.graph-view .react-flow__background {
+  background: var(--bg);
+}
+
+.graph-view .react-flow__edge-path {
+  stroke: var(--border-hover);
+  stroke-width: 1.5;
+}
+
+.graph-view .react-flow__edge.selected .react-flow__edge-path,
+.graph-view .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--accent);
+}
+
+.graph-view .react-flow__controls {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+
+.graph-view .react-flow__controls-button {
+  background: var(--surface-2);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  fill: var(--text-2);
+}
+
+.graph-view .react-flow__controls-button:hover {
+  background: var(--surface-3);
+  color: var(--text);
+  fill: var(--text);
+}
+
+.graph-view .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.graph-view .react-flow__minimap {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
+.graph-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.graph-empty-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-6);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-width: 340px;
+  width: 100%;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+.graph-empty-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.graph-empty-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.graph-empty-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.graph-empty-step strong { color: var(--text); }
+
+.graph-empty-step-n {
+  min-width: 20px;
+  height: 20px;
+  background: var(--surface-3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: inherit;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.graph-solving {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  font-size: 13px;
+  color: var(--text-2);
+  pointer-events: none;
+}
+
+.graph-solving .spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

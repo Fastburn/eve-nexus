@@ -1,0 +1,240 @@
+/* ── EFT Import Dialog ───────────────────────────────────────────────────── */
+.eft-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--sp-4);
+}
+
+.eft-dialog {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 2);
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.eft-header {
+  padding: var(--sp-4) var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.eft-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.eft-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.eft-close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.eft-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.eft-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--sp-1);
+}
+
+.eft-textarea {
+  width: 100%;
+  height: 160px;
+  resize: vertical;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.eft-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.eft-qty-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.eft-qty-label {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.eft-qty-input {
+  width: 80px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: 13px;
+  color: var(--text);
+  text-align: center;
+}
+
+.eft-qty-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ── Preview ─────────────────────────────────────────────────────────────── */
+.eft-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.eft-preview-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.eft-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.eft-preview-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+  padding: 2px var(--sp-1);
+  border-radius: calc(var(--radius) / 2);
+}
+
+.eft-preview-item.unresolved {
+  color: var(--red);
+  opacity: 0.8;
+}
+
+.eft-preview-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+.eft-preview-item.unresolved .eft-preview-dot {
+  background: var(--red);
+}
+
+.eft-preview-name {
+  flex: 1;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eft-preview-item.unresolved .eft-preview-name {
+  color: var(--red);
+}
+
+.eft-preview-qty {
+  color: var(--text-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.eft-parsing {
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.eft-footer {
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.eft-btn-cancel {
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.eft-btn-cancel:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.eft-btn-import {
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--accent);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+.eft-btn-import:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.eft-btn-import:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

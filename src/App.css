@@ -1,0 +1,263 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   ROOT — default (space dark) theme variables.
+   Must come BEFORE the [data-theme] overrides so the overrides win on equal
+   specificity.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Default theme variables ────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg:        #0b0f18;
+  --surface-1: #111827;
+  --surface-2: #1a2234;
+  --surface-3: #1e2a3e;
+
+  /* Borders */
+  --border:       #2a3a55;
+  --border-hover: #3d5278;
+
+  /* Text */
+  --text:   #cfd8e8;
+  --text-2: #7a8fa8;
+  --text-3: #4a5a72;
+
+  /* Accent */
+  --accent:       #4d9de0;
+  --accent-hover: #6ab0e8;
+  --gold:         #c8a84b;
+
+  /* Status */
+  --green:  #4caf6b;
+  --orange: #e07840;
+  --red:    #e05252;
+  --yellow: #f0b429;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* Layout */
+  --sidebar-w:      220px;
+  --right-panel-w:  320px;
+  --toolbar-h:      74px;
+  --statusbar-h:    24px;
+
+  /* Shape */
+  --radius:    4px;
+  --radius-lg: 8px;
+
+  /* Typography */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+
+  /* Tell the browser/WebView to render native widgets (select options, scrollbars)
+     in dark mode by default. Overridden to "light" for the light theme. */
+  color-scheme: dark;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THEMES — applied via data-theme on <html>
+   These come AFTER :root so they win on equal specificity.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Amarr — gold empire, warm dark browns ──────────────────────────────────── */
+[data-theme="amarr"] {
+  --bg:           #0f0c05;
+  --surface-1:    #1a1308;
+  --surface-2:    #23190d;
+  --surface-3:    #2c2012;
+  --border:       #4a3516;
+  --border-hover: #6e5025;
+  --text:         #e8d5a8;
+  --text-2:       #b09060;
+  --text-3:       #6a5030;
+  --accent:       #d49a1e;
+  --accent-hover: #eaac2a;
+  --gold:         #f0c840;
+  --green:        #7ab858;
+  --orange:       #d46820;
+  --red:          #c83820;
+  --yellow:       #e8b020;
+}
+
+/* ── Caldari — corporate cold steel blue ────────────────────────────────────── */
+[data-theme="caldari"] {
+  --bg:           #070b10;
+  --surface-1:    #0b1018;
+  --surface-2:    #0f1620;
+  --surface-3:    #131d2a;
+  --border:       #1c3050;
+  --border-hover: #284870;
+  --text:         #c0d0e0;
+  --text-2:       #7090a8;
+  --text-3:       #384a62;
+  --accent:       #1890d8;
+  --accent-hover: #28a4ec;
+  --gold:         #60b0d8;
+  --green:        #38b888;
+  --orange:       #c88828;
+  --red:          #c04040;
+  --yellow:       #d0a820;
+}
+
+/* ── Gallente — organic green democracy ─────────────────────────────────────── */
+[data-theme="gallente"] {
+  --bg:           #070e0a;
+  --surface-1:    #0c1610;
+  --surface-2:    #111e16;
+  --surface-3:    #15251b;
+  --border:       #1c3e28;
+  --border-hover: #285a38;
+  --text:         #b8dcc8;
+  --text-2:       #629878;
+  --text-3:       #305440;
+  --accent:       #28b060;
+  --accent-hover: #38c870;
+  --gold:         #a8d848;
+  --green:        #30c068;
+  --orange:       #c8a028;
+  --red:          #c04040;
+  --yellow:       #d4b820;
+}
+
+/* ── Minmatar — tribal rust and fire ────────────────────────────────────────── */
+[data-theme="minmatar"] {
+  --bg:           #0e0806;
+  --surface-1:    #180e0a;
+  --surface-2:    #201410;
+  --surface-3:    #281a14;
+  --border:       #402010;
+  --border-hover: #5c3018;
+  --text:         #e0c4b0;
+  --text-2:       #a07060;
+  --text-3:       #584030;
+  --accent:       #cc4818;
+  --accent-hover: #e05828;
+  --gold:         #d08840;
+  --green:        #78b040;
+  --orange:       #d06820;
+  --red:          #c83020;
+  --yellow:       #d49820;
+}
+
+/* ── Jove — ancient void-dwellers, deep violet and silence ─────────────────── */
+[data-theme="jove"] {
+  --bg:           #08050e;
+  --surface-1:    #100c1c;
+  --surface-2:    #171228;
+  --surface-3:    #1e1832;
+  --border:       #352558;
+  --border-hover: #4e3880;
+  --text:         #d4c4f0;
+  --text-2:       #8868c0;
+  --text-3:       #4c3870;
+  --accent:       #7840e0;
+  --accent-hover: #9058f8;
+  --gold:         #c060d8;
+  --green:        #3888c8;
+  --orange:       #c03888;
+  --red:          #b82060;
+  --yellow:       #7858d0;
+}
+
+/* ── Light — clean professional white ──────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:           #f0f3f8;
+  --surface-1:    #ffffff;
+  --surface-2:    #e8ecf4;
+  --surface-3:    #dde2ed;
+  --border:       #c8cedc;
+  --border-hover: #a8b4cc;
+  --text:         #18202e;
+  --text-2:       #48587a;
+  --text-3:       #8898b8;
+  --accent:       #2d78d8;
+  --accent-hover: #3d88e8;
+  --gold:         #b88a10;
+  --green:        #1e8840;
+  --orange:       #c85818;
+  --red:          #c02828;
+  --yellow:       #c89010;
+  color-scheme:   light;
+}
+
+/* Light mode — inputs and scrollbars need inverted treatment */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Base element resets ────────────────────────────────────────────────────── */
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+input, select, textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-2) var(--sp-3);
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--border-hover); }
+
+/* ── Utility classes ────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}

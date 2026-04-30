@@ -1,0 +1,321 @@
+/* ── Blueprint Browser ───────────────────────────────────────────────────────── */
+.bp-browser {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────────── */
+.bp-browser-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.bp-browser-search {
+  flex: 1;
+  max-width: 360px;
+}
+
+.bp-browser-search input {
+  width: 100%;
+}
+
+.bp-browser-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.bp-browser-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.bp-browser-toggle:hover {
+  color: var(--text);
+}
+
+.bp-browser-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── 3-column body ───────────────────────────────────────────────────────────── */
+.bp-browser-body {
+  display: grid;
+  grid-template-columns: 200px 180px 1fr;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Column base styles ──────────────────────────────────────────────────────── */
+.bp-col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+.bp-col:last-child {
+  border-right: none;
+}
+
+.bp-col-header {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.bp-col-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-1) 0;
+}
+
+/* ── Category / group rows ───────────────────────────────────────────────────── */
+.bp-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 12px;
+  color: var(--text-2);
+  text-align: left;
+  gap: var(--sp-2);
+  transition: background 0.1s, color 0.1s;
+}
+
+.bp-nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.bp-nav-item.active {
+  background: var(--surface-3);
+  color: var(--accent);
+}
+
+.bp-nav-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bp-nav-item-count {
+  font-size: 10px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.bp-nav-item.active .bp-nav-item-count {
+  color: var(--accent);
+  opacity: 0.6;
+}
+
+/* ── Blueprint result cards ──────────────────────────────────────────────────── */
+.bp-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.bp-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.1s;
+}
+
+.bp-card:hover {
+  border-color: var(--border-hover);
+}
+
+.bp-card.owned {
+  border-color: #2a4a2a;
+}
+
+.bp-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bp-card-product {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bp-card-bp-name {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bp-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+
+.bp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.bp-badge.owned {
+  background: rgba(76, 175, 107, 0.15);
+  color: var(--green);
+}
+
+.bp-badge.unowned {
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.bp-badge.bpo {
+  background: rgba(200, 168, 75, 0.12);
+  color: var(--gold);
+}
+
+.bp-badge.bpc {
+  background: rgba(77, 157, 224, 0.12);
+  color: var(--accent);
+}
+
+.bp-badge.reaction {
+  background: rgba(224, 120, 64, 0.12);
+  color: var(--orange);
+}
+
+.bp-ownership-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--sp-1);
+}
+
+.bp-ownership-row {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.bp-ownership-char {
+  color: var(--text-3);
+}
+
+.bp-card-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.bp-add-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.bp-add-btn:hover {
+  background: var(--accent-hover);
+}
+
+.bp-add-btn.added {
+  background: var(--green);
+}
+
+.bp-qty-input {
+  width: 52px;
+  text-align: center;
+  padding: 2px var(--sp-2);
+  font-size: 12px;
+}
+
+/* ── Empty / loading states ──────────────────────────────────────────────────── */
+.bp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--sp-3);
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+  padding: var(--sp-6);
+}
+
+.bp-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.bp-error {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: 11px;
+  color: var(--red);
+  background: rgba(231, 76, 60, 0.08);
+  border-bottom: 1px solid rgba(231, 76, 60, 0.2);
+  flex-shrink: 0;
+}

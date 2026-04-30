@@ -1,0 +1,89 @@
+/* ── SDE banner ──────────────────────────────────────────────────────────────── */
+.sde-banner {
+  position: fixed;
+  bottom: 0;
+  left: var(--sidebar-w);
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+}
+
+.sde-banner-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.sde-banner-text strong {
+  color: var(--gold);
+}
+
+.sde-banner-progress {
+  flex: 1;
+  max-width: 280px;
+}
+
+.sde-banner-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: var(--sp-1);
+}
+
+.sde-banner-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.sde-banner-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.15s;
+}
+
+.sde-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.sde-banner-dl-btn {
+  padding: var(--sp-1) var(--sp-4);
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.sde-banner-dl-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.sde-banner-dl-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sde-banner-dismiss {
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: 12px;
+  transition: color 0.1s;
+}
+
+.sde-banner-dismiss:hover {
+  color: var(--text-2);
+}

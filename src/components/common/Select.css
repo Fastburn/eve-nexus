@@ -1,0 +1,84 @@
+.x-select {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.x-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.1s;
+}
+
+.x-select-trigger:hover {
+  border-color: var(--border-hover);
+}
+
+.x-select.open .x-select-trigger {
+  border-color: var(--accent);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.x-select-arrow {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-2);
+  flex-shrink: 0;
+  transition: transform 0.1s;
+}
+
+.x-select.open .x-select-arrow {
+  transform: rotate(180deg);
+}
+
+.x-select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.x-select-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  list-style: none;
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  border-top: none;
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.x-select-option {
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text);
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.x-select-option:hover {
+  background: var(--surface-3);
+}
+
+.x-select-option.selected {
+  color: var(--accent);
+  background: var(--surface-3);
+}

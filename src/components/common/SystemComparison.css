@@ -1,0 +1,119 @@
+/* ── System Comparison ───────────────────────────────────────────────────────── */
+.syscmp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.syscmp-add {
+  max-width: 320px;
+}
+
+.syscmp-empty {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: var(--sp-2) 0;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────────── */
+.syscmp-table {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.syscmp-header,
+.syscmp-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 90px 28px;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--radius);
+}
+
+.syscmp-header {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.syscmp-row {
+  font-size: 12px;
+  color: var(--text-2);
+  transition: background 0.1s;
+}
+
+.syscmp-row:hover { background: var(--surface-2); }
+
+.syscmp-row-current {
+  background: rgba(77, 157, 224, 0.06);
+  border: 1px solid rgba(77, 157, 224, 0.15);
+}
+
+.syscmp-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.syscmp-current-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(77, 157, 224, 0.2);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.syscmp-market-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(76, 175, 107, 0.15);
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.syscmp-loading,
+.syscmp-unknown {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.syscmp-right { text-align: right; }
+
+.syscmp-idx        { font-variant-numeric: tabular-nums; }
+.syscmp-idx-ok     { color: var(--green); }
+.syscmp-idx-high   { color: var(--yellow); font-weight: 600; }
+
+.syscmp-actions { display: flex; justify-content: flex-end; }
+
+.syscmp-remove {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  font-size: 14px;
+  color: var(--text-3);
+  transition: color 0.1s, background 0.1s;
+}
+
+.syscmp-remove:hover {
+  color: var(--red);
+  background: rgba(231, 76, 60, 0.1);
+}
