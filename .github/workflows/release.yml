@@ -87,4 +87,3 @@ jobs:
             > This will go away once code signing is in place.
           releaseDraft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || true }}
           prerelease: false
-          includeUpdaterJson: true
