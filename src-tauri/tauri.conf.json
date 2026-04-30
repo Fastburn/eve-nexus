@@ -28,13 +28,13 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCNTg3NkU3NEI4N0Q0QTgKUldTbzFJZEw1M1pZeTd1Vzc4TkxxS3d2YTAxd3pHS2JmN3ZaYzlsZzlzTkpWWUNQYmVuWk1HVWgK",
       "endpoints": [
-        "https://github.com/fastburn/eve-nexus/releases/latest/download/latest.json"
+        "https://github.com/Fastburn/eve-nexus/releases/latest/download/latest.json"
       ]
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "deb", "rpm", "appimage"],
     "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {

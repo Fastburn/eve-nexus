@@ -79,7 +79,7 @@ jobs:
           releaseBody: |
             ## Eve Nexus __VERSION__
 
-            **Windows:** Download `Eve.Nexus___VERSION___x64-setup.exe`
+            **Windows:** Download `Eve Nexus___VERSION___x64-setup.exe`
             **Linux:** Download the `.AppImage`, `.deb`, or `.rpm` for your distro
 
             ---
