@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, useUiStore, useMarketStore } from "../../store";
 import { getTypeNames, getSystemCostInfo, searchMarketStructures, getAssetStructures } from "../../api";
+import { getIndustryCategories } from "../../api/blueprints";
 import { TypeIcon, TypePicker, SystemPicker, Select } from "../common";
-import type { JobType, MarketRegion, RigBonus, StructureProfile, StructureSearchResult, SystemCostInfo, TypeSummary } from "../../api";
+import type { JobType, IndustryCategory, MarketRegion, RigBonus, StructureProfile, StructureSearchResult, SystemCostInfo, TypeSummary } from "../../api";
 import type { ThemeId } from "../../store";
 import "./SettingsPanel.css";
 import "../common/TypePicker.css";
@@ -33,6 +34,11 @@ interface ProfileEditorProps {
 function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
   const [profile, setProfile] = useState<StructureProfile>(initial);
   const [systemName, setSystemName] = useState<string | null>(null);
+  const [categories, setCategories] = useState<IndustryCategory[]>([]);
+
+  useEffect(() => {
+    getIndustryCategories().then(setCategories).catch(() => {});
+  }, []);
 
   // Load the system name for an existing solarSystemId on mount.
   useEffect(() => {
@@ -190,19 +196,21 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
         ) : (
           <div className="sp-rig-list">
             <div className="sp-rig-header">
-              <span title="EVE item category ID. Common ones: 4=Material, 6=Ship, 7=Module, 8=Charge, 17=Commodity, 25=Asteroid. Check the SDE or EVE University wiki for others.">Category ID</span>
+              <span>Category</span>
               <span title="Material Efficiency bonus in %. Reduces material requirements for items in this category. T1 Rigs ≈2%, T2 Rigs ≈4%.">ME %</span>
               <span title="Time Efficiency bonus in %. Reduces job duration for items in this category. T1 Rigs ≈2%, T2 Rigs ≈4%.">TE %</span>
               <span />
             </div>
             {profile.rigBonuses.map((rig, i) => (
               <div key={i} className="sp-rig-row">
-                <input
-                  className="sp-input sp-rig-input"
-                  type="number"
-                  min={0}
-                  value={rig.categoryId}
-                  onChange={(e) => updateRig(i, { categoryId: parseInt(e.target.value, 10) || 0 })}
+                <Select
+                  className="sp-rig-select"
+                  value={String(rig.categoryId)}
+                  onChange={(v) => updateRig(i, { categoryId: parseInt(v, 10) || 0 })}
+                  options={[
+                    { value: "0", label: "— Select —" },
+                    ...categories.map((c) => ({ value: String(c.categoryId), label: c.categoryName })),
+                  ]}
                 />
                 <input
                   className="sp-input sp-rig-input"
