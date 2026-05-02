@@ -1,10 +1,13 @@
 import { useUiStore } from "../../store";
+import { useDraggable } from "../../lib/useDraggable";
 import { CharactersPanel } from "../panels";
 import "./CharactersModal.css";
 
 export function CharactersModal() {
   const show    = useUiStore((s) => s.showCharacters);
   const setShow = useUiStore((s) => s.setShowCharacters);
+
+  const { onMouseDown, style } = useDraggable();
 
   if (!show) return null;
 
@@ -15,8 +18,8 @@ export function CharactersModal() {
       aria-modal="true"
       aria-label="Characters"
     >
-      <div className="chars-modal">
-        <div className="chars-modal-header">
+      <div className="chars-modal" style={style}>
+        <div className="chars-modal-header chars-modal-drag-handle" onMouseDown={onMouseDown}>
           <span className="chars-modal-title">Characters &amp; ESI</span>
           <button className="chars-modal-close" onClick={() => setShow(false)} title="Close">×</button>
         </div>

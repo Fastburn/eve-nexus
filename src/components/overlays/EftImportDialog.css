@@ -31,6 +31,9 @@
   flex-shrink: 0;
 }
 
+.eft-drag-handle { cursor: grab; }
+.eft-drag-handle:active { cursor: grabbing; }
+
 .eft-title {
   font-size: 14px;
   font-weight: 600;

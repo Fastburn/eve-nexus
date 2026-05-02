@@ -30,6 +30,14 @@
   flex-shrink: 0;
 }
 
+.settings-modal-drag-handle {
+  cursor: grab;
+}
+
+.settings-modal-drag-handle:active {
+  cursor: grabbing;
+}
+
 .settings-modal-title {
   font-size: 13px;
   font-weight: 700;

@@ -30,6 +30,9 @@
   flex-shrink: 0;
 }
 
+.chars-modal-drag-handle { cursor: grab; }
+.chars-modal-drag-handle:active { cursor: grabbing; }
+
 .chars-modal-title {
   font-size: 13px;
   font-weight: 700;

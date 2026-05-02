@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { importEftFit } from "../../api/eft";
 import type { EftItem } from "../../api/eft";
+import { useDraggable } from "../../lib/useDraggable";
 import "./EftImportDialog.css";
 
 interface Props {
@@ -65,6 +66,7 @@ export function EftImportDialog({ onClose, onImport }: Props) {
   }
 
   const canImport = !parsing && items && items.length > 0 && !importing;
+  const { onMouseDown, style } = useDraggable();
 
   return (
     <div
@@ -72,8 +74,8 @@ export function EftImportDialog({ onClose, onImport }: Props) {
       role="dialog"
       aria-modal="true"
     >
-      <div className="eft-dialog">
-        <div className="eft-header">
+      <div className="eft-dialog" style={style}>
+        <div className="eft-header eft-drag-handle" onMouseDown={onMouseDown}>
           <span className="eft-title">Import Ship Fit</span>
           <button className="eft-close" onClick={onClose}>×</button>
         </div>
