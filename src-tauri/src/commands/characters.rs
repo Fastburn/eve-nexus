@@ -120,21 +120,41 @@ pub fn set_corp_assets_mode(
 /// Refresh ESI data for every authenticated character in the local DB.
 ///
 /// Runs all characters in parallel; returns the first error encountered (if any).
+/// Public market data (prices, cost indices) is always refreshed — no character required.
 #[tauri::command]
 pub async fn refresh_all_esi_data(
     esi: State<'_, EsiState>,
     local: State<'_, LocalState>,
 ) -> Result<(), CommandError> {
     let characters = local.0.get_characters().map_err(CommandError::from)?;
-    if characters.is_empty() {
-        return Ok(());
-    }
 
     let client = &esi.0;
     let db = &local.0;
 
     let _ = db.delete_cache_expiry("prices");
     let _ = db.delete_cache_expiry("cost_indices");
+
+    // Always fetch public data — these endpoints require no character auth.
+    let (prices, indices) = tokio::join!(
+        endpoints::fetch_adjusted_prices(client, db),
+        endpoints::fetch_cost_indices(client, db),
+    );
+    prices.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+    indices.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+
+    // Resolve names for all systems in the cost index so the SystemPicker
+    // prefix search works without requiring a prior individual lookup.
+    // resolve_system_names skips already-cached IDs, so after the first run
+    // this is a local no-op.
+    if let Ok(cost_indices) = db.get_cost_indices() {
+        let ids: Vec<crate::types::SolarSystemId> = cost_indices.keys().copied().collect();
+        let _ = endpoints::resolve_system_names(client, db, &ids).await;
+    }
+
+    if characters.is_empty() {
+        return Ok(());
+    }
+
     for (char_id, _) in &characters {
         let _ = db.delete_cache_expiry_prefix(&format!("char:{char_id}:"));
     }
@@ -145,13 +165,6 @@ pub async fn refresh_all_esi_data(
             }
         }
     }
-
-    let (prices, indices) = tokio::join!(
-        endpoints::fetch_adjusted_prices(client, db),
-        endpoints::fetch_cost_indices(client, db),
-    );
-    prices.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-    indices.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
 
     let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
     let char_futures: Vec<_> = characters
@@ -200,13 +213,15 @@ pub async fn refresh_all_esi_data(
     }
 
     // Pre-fetch structure market prices so plan solve reads from cache.
-    if let Some(char_id) = characters.first().map(|(id, _)| *id) {
-        if let Ok(regions) = db.get_market_regions() {
-            for r in regions {
-                if let Some(sid) = r.structure_id {
-                    let _ = endpoints::fetch_structure_market_prices(
-                        client, db, sid, char_id, &[], 3600,
-                    ).await;
+    // Try each character in order — the first one with docking access wins.
+    if let Ok(regions) = db.get_market_regions() {
+        for r in regions {
+            if let Some(sid) = r.structure_id {
+                for (char_id, _) in &characters {
+                    let ok = endpoints::fetch_structure_market_prices(
+                        client, db, sid, *char_id, &[], 3600,
+                    ).await.is_ok();
+                    if ok { break; }
                 }
             }
         }

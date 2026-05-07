@@ -46,7 +46,7 @@ const SCOPES: &str = concat!(
 
 const KEYRING_SERVICE: &str = "eve-nexus";
 /// Timeout waiting for the browser callback.
-const CALLBACK_TIMEOUT_SECS: u64 = 120;
+const CALLBACK_TIMEOUT_SECS: u64 = 60;
 
 // ─── Error ────────────────────────────────────────────────────────────────────
 
@@ -94,12 +94,15 @@ struct TokenResponse {
 pub struct AuthManager {
     http: reqwest::Client,
     local: Arc<LocalDb>,
+    /// Ensures only one auth flow runs at a time (port 21468 can only be held by one listener).
+    auth_lock: tokio::sync::Mutex<()>,
 }
 
 impl AuthManager {
     pub fn new(local: Arc<LocalDb>) -> Self {
         Self {
             local,
+            auth_lock: tokio::sync::Mutex::new(()),
             http: reqwest::Client::builder()
                 .user_agent(concat!(
                     "EveNexus/",
@@ -120,6 +123,14 @@ impl AuthManager {
     ///
     /// Returns `(character_id, character_name)` on success.
     pub async fn start_auth_flow(&self, app: &tauri::AppHandle) -> Result<(CharacterId, String), AuthError> {
+        // Only one auth flow at a time — port 21468 can't be shared.
+        let _lock = self.auth_lock.try_lock().map_err(|_| {
+            AuthError::Io(std::io::Error::new(
+                std::io::ErrorKind::AddrInUse,
+                "An authentication window is already open. Complete it or wait 60 seconds for it to expire.",
+            ))
+        })?;
+
         // ── PKCE ─────────────────────────────────────────────────────────────
         let code_verifier = pkce_verifier();
         let code_challenge = pkce_challenge(&code_verifier);
@@ -308,6 +319,8 @@ fn build_auth_url(redirect_uri: &str, code_challenge: &str, state: &str) -> Stri
     // EVE SSO compares redirect_uri by raw string — send it unencoded so the
     // value the server sees matches what was registered in the portal exactly.
     // Scopes still need encoding because they contain spaces.
+    // prompt=login forces EVE SSO to show a fresh login screen every time,
+    // so adding a second account doesn't silently re-auth the first character.
     format!(
         "{AUTH_URL}?response_type=code\
          &client_id={CLIENT_ID}\
@@ -315,7 +328,8 @@ fn build_auth_url(redirect_uri: &str, code_challenge: &str, state: &str) -> Stri
          &scope={}\
          &code_challenge={code_challenge}\
          &code_challenge_method=S256\
-         &state={state}",
+         &state={state}\
+         &prompt=login",
         urlencode(SCOPES),
     )
 }

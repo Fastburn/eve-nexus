@@ -12,6 +12,7 @@
  * an extra render cycle.
  */
 import { checkForAppUpdate } from "../api";
+import { refreshAllEsiData } from "../api/characters";
 import { getWizardCompleted } from "../api/settings";
 import { useSdeStore } from "./sde";
 import { useCharactersStore } from "./characters";
@@ -48,6 +49,10 @@ export async function initApp(): Promise<void> {
   if (!sdeAvailable) {
     useUiStore.getState().setSdeBanner(true);
   }
+
+  // Fetch public ESI data (cost indices, adjusted prices) in the background.
+  // No character auth needed — ensures job cost works even without a linked character.
+  refreshAllEsiData().catch(() => {});
 
   // Check for app update in the background — don't block startup.
   checkForAppUpdate()

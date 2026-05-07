@@ -38,7 +38,7 @@ function esiErrorMessage(e: unknown): string {
   return String(e);
 }
 
-export const useCharactersStore = create<CharactersState>((set, get) => ({
+export const useCharactersStore = create<CharactersState>((set) => ({
   characters: [],
   loading: false,
   refreshing: false,
@@ -79,7 +79,6 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
   },
 
   refreshAll: async () => {
-    if (get().characters.length === 0) return;
     set({ refreshing: true, error: null });
     try {
       await refreshAllEsiData();
