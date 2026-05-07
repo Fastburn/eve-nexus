@@ -124,10 +124,14 @@ pub fn solve_build_plan(
         }
     }
 
-    let character_skills = characters
-        .first()
-        .and_then(|(id, _)| local.0.get_skills(*id).ok())
-        .unwrap_or_default();
+    // Use the best skill level across all characters for each skill.
+    let mut character_skills: HashMap<TypeId, u8> = HashMap::new();
+    for (char_id, _) in &characters {
+        for (skill_id, level) in local.0.get_skills(*char_id).unwrap_or_default() {
+            let entry = character_skills.entry(skill_id).or_insert(0);
+            *entry = (*entry).max(level);
+        }
+    }
 
     let adjusted_prices = local.0.get_adjusted_prices().unwrap_or_default();
     let cost_indices = local.0.get_cost_indices().unwrap_or_default();

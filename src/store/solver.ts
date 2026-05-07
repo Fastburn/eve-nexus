@@ -20,7 +20,7 @@ function detectWarnings(roots: BuildNode[]): string[] {
   let missingJobCost = false;
 
   function visit(node: BuildNode) {
-    const isBuildNode = node.kind.type === "manufacturing" || node.kind.type === "reaction" || node.kind.type === "invention";
+    const isBuildNode = node.kind.type === "manufacturing" || node.kind.type === "reaction";
     if (isBuildNode && node.jobCost === null) missingJobCost = true;
     for (const child of node.inputs) visit(child);
   }
