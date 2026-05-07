@@ -14,9 +14,9 @@
     "windows": [
       {
         "title": "Eve Nexus",
-        "width": 1400,
+        "width": 1600,
         "height": 900,
-        "minWidth": 1024,
+        "minWidth": 1200,
         "minHeight": 700
       }
     ],
