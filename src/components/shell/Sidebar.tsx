@@ -46,7 +46,7 @@ export function Sidebar() {
       const id = await newPlan();
       const namesFromImport: Record<number, string> = {};
       for (const item of items) {
-        const target: BuildTarget = { typeId: item.typeId, quantity: item.quantity, structureProfileId: null };
+        const target: BuildTarget = { typeId: item.typeId, quantity: item.quantity, structureProfileId: defaultProfileId() };
         addTarget(target);
         namesFromImport[item.typeId] = item.typeName;
       }
@@ -83,8 +83,12 @@ export function Sidebar() {
     setRenamingId(null);
   }
 
+  function defaultProfileId(): string | null {
+    return profiles.length === 1 ? profiles[0].id : null;
+  }
+
   function handlePickType(type: TypeSummary) {
-    addTarget({ typeId: type.typeId, quantity: 1, structureProfileId: null });
+    addTarget({ typeId: type.typeId, quantity: 1, structureProfileId: defaultProfileId() });
   }
 
   function handleQtyChange(typeId: number, raw: string) {
@@ -244,10 +248,10 @@ export function Sidebar() {
                   </span>
                   {profiles.length > 0 && (
                     <Select
-                      className="sidebar-target-profile"
+                      className={`sidebar-target-profile${!t.structureProfileId ? " sidebar-target-profile-warn" : ""}`}
                       value={t.structureProfileId ?? ""}
                       onChange={(val) => handleProfileChange(t.typeId, val)}
-                      title="Structure profile"
+                      title={!t.structureProfileId ? "No structure profile — rig bonuses and job cost won't apply" : "Structure profile"}
                       options={[
                         { value: "", label: "No profile" },
                         ...profiles.map((p) => ({ value: p.id, label: p.label })),

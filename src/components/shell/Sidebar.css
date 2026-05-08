@@ -166,6 +166,10 @@
   text-overflow: ellipsis;
 }
 
+.sidebar-target-profile-warn {
+  color: var(--orange) !important;
+}
+
 .sidebar-target-profile:focus {
   outline: none;
   color: var(--text);

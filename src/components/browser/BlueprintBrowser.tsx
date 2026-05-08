@@ -5,7 +5,7 @@ import {
   getIndustryGroups,
 } from "../../api";
 import type { BlueprintEntry, IndustryCategory, IndustryGroup } from "../../api";
-import { usePlanStore, useSdeStore } from "../../store";
+import { usePlanStore, useSdeStore, useSettingsStore } from "../../store";
 import type { TypeId } from "../../api";
 import { TypeIcon } from "../common";
 import "./BlueprintBrowser.css";
@@ -23,6 +23,7 @@ export function BlueprintBrowser() {
   const sdeAvailable = useSdeStore((s) => s.available);
   const addTarget    = usePlanStore((s) => s.addTarget);
   const activePlan   = usePlanStore((s) => s.activePlan);  // null = new unsaved plan
+  const profiles     = useSettingsStore((s) => s.structureProfiles);
 
   // ── Nav state ─────────────────────────────────────────────────────────────
   const [categories, setCategories]         = useState<IndustryCategory[]>([]);
@@ -106,7 +107,8 @@ export function BlueprintBrowser() {
   // ── Add to plan ───────────────────────────────────────────────────────────
   function handleAdd(entry: BlueprintEntry) {
     const qty = quantities[entry.productTypeId] ?? 1;
-    addTarget({ typeId: entry.productTypeId, quantity: Math.max(1, qty), structureProfileId: null });
+    const profileId = profiles.length === 1 ? profiles[0].id : null;
+    addTarget({ typeId: entry.productTypeId, quantity: Math.max(1, qty), structureProfileId: profileId });
 
     // Flash confirmation.
     if (addedRef.current?.timer) clearTimeout(addedRef.current.timer);
