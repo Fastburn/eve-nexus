@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { getIndustrySkills, getCharacterBlueprints, getTypeNames, getSystemCostInfo } from "../../api";
-import { useSettingsStore } from "../../store";
+import { useSettingsStore, useCharactersStore } from "../../store";
 import type { BlueprintOwnership, StructureProfile, SystemCostInfo, SystemSearchResult } from "../../api";
 import { SystemPicker, SystemComparison } from "../common";
 import "./AdvisorPanel.css";
@@ -275,8 +275,9 @@ function Stars({ level, max = 5 }: { level: number; max?: number }) {
 }
 
 export function AdvisorPanel() {
-  const profiles     = useSettingsStore((s) => s.structureProfiles);
-  const saveProfile  = useSettingsStore((s) => s.saveProfile);
+  const profiles        = useSettingsStore((s) => s.structureProfiles);
+  const saveProfile     = useSettingsStore((s) => s.saveProfile);
+  const characterCount  = useCharactersStore((s) => s.characters.length);
 
   const [skills, setSkills]       = useState<Record<number, number>>({});
   const [bps, setBps]             = useState<BlueprintOwnership[]>([]);
@@ -439,6 +440,11 @@ export function AdvisorPanel() {
         </section>
 
         {/* ── Skills sections ── */}
+        {characterCount > 1 && (
+          <p className="adv-multi-char-note">
+            Skill levels shown are the best across all your characters. The solver uses these same values when calculating material efficiency and invention probability.
+          </p>
+        )}
         {groups.map(({ group, defs }) => (
           <section key={group} className="adv-section">
             <h3 className="adv-section-title">{GROUP_LABELS[group]}</h3>

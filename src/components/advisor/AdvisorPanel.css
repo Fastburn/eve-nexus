@@ -87,6 +87,17 @@
   margin: 0;
 }
 
+.adv-multi-char-note {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  border-left: 2px solid var(--border);
+}
+
 /* ── Capacity grid ───────────────────────────────────────────────────────────── */
 .adv-capacity-grid {
   display: grid;
