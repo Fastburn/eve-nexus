@@ -71,11 +71,12 @@ pub fn delete_market_region(
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketPriceEntry {
-    pub region_id:  i64,
-    pub type_id:    TypeId,
-    pub best_sell:  Option<f64>,
-    pub best_buy:   Option<f64>,
-    pub fetched_at: String,
+    pub region_id:    i64,
+    pub type_id:      TypeId,
+    pub best_sell:    Option<f64>,
+    pub best_buy:     Option<f64>,
+    pub adjusted_30d: Option<f64>,
+    pub fetched_at:   String,
 }
 
 /// Fetch (or return cached) market prices for the given type IDs across all
@@ -96,6 +97,9 @@ pub async fn fetch_market_prices(
 
     let characters = local.0.get_characters().map_err(CommandError::from)?;
     let character_id = characters.first().map(|(id, _)| *id);
+
+    // Read adjusted prices from cache — refreshed on startup via refresh_all_esi_data.
+    let adjusted = local.0.get_adjusted_prices_for(&type_ids).unwrap_or_default();
 
     let mut out = Vec::new();
     for region in regions {
@@ -133,11 +137,12 @@ pub async fn fetch_market_prices(
 
         for p in prices {
             out.push(MarketPriceEntry {
-                region_id:  p.region_id,
-                type_id:    p.type_id,
-                best_sell:  p.best_sell,
-                best_buy:   p.best_buy,
-                fetched_at: p.fetched_at.to_rfc3339(),
+                region_id:    p.region_id,
+                type_id:      p.type_id,
+                best_sell:    p.best_sell,
+                best_buy:     p.best_buy,
+                adjusted_30d: adjusted.get(&p.type_id).copied(),
+                fetched_at:   p.fetched_at.to_rfc3339(),
             });
         }
     }

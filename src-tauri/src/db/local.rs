@@ -1051,6 +1051,32 @@ impl LocalDb {
         rows.collect::<Result<HashMap<_, _>, _>>().map_err(Into::into)
     }
 
+    pub fn get_adjusted_prices_for(
+        &self,
+        type_ids: &[crate::types::TypeId],
+    ) -> LocalResult<HashMap<crate::types::TypeId, f64>> {
+        if type_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let conn = self.conn()?;
+        let placeholders = type_ids.iter().enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT type_id, adjusted_price FROM esi_prices WHERE type_id IN ({})",
+            placeholders
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let params: Vec<&dyn rusqlite::ToSql> = type_ids.iter()
+            .map(|id| id as &dyn rusqlite::ToSql)
+            .collect();
+        let rows = stmt.query_map(params.as_slice(), |r| {
+            Ok((r.get::<_, crate::types::TypeId>(0)?, r.get::<_, f64>(1)?))
+        })?;
+        rows.collect::<Result<HashMap<_, _>, _>>().map_err(Into::into)
+    }
+
     pub fn replace_adjusted_prices(
         &self,
         prices: &HashMap<crate::types::TypeId, f64>,

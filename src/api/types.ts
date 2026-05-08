@@ -256,6 +256,8 @@ export interface MarketPriceEntry {
   bestSell: number | null;
   /** Highest active buy order — what you get selling immediately. */
   bestBuy: number | null;
+  /** 30-day adjusted average price from EVE's global market data. */
+  adjusted30d: number | null;
   fetchedAt: string;
 }
 
