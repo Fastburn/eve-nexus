@@ -53,6 +53,12 @@
   gap: 1px;
 }
 
+.gv-profit-stat-sep {
+  border-left: 1px solid var(--border);
+  padding-left: var(--sp-3);
+  margin-left: var(--sp-1);
+}
+
 .gv-profit-label {
   font-size: 10px;
   font-weight: 600;
@@ -153,7 +159,7 @@
 
 /* ── Table ───────────────────────────────────────────────────────────────── */
 .gv-table {
-  width: 100%;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }

@@ -53,6 +53,7 @@ function flattenNodes(roots: BuildNode[]): BuildNode[] {
 
 interface EnrichedNode extends BuildNode {
   bestSellPrice: number | null;
+  adjusted30d:   number | null;
   /** Buy vs build cost comparison — null for buy nodes or when price data is missing. */
   bvbCosts: NodeCosts | null;
 }
@@ -70,6 +71,8 @@ type SortKey =
   | "toBuy"
   | "jobCost"
   | "sellPrice"
+  | "avg30d"
+  | "buyVol"
   | "bvb";
 
 interface Col {
@@ -90,6 +93,8 @@ const COLS: Col[] = [
   { key: "toBuy",     label: "To Buy",     align: "right", tip: "Quantity to purchase from the market: Needed − On Hand − In Jobs." },
   { key: "jobCost",   label: "Job Cost",   align: "right", tip: "Estimated ISK installation fee: output value × system cost index × facility tax. Lower cost index systems (e.g. null-sec) dramatically reduce this." },
   { key: "sellPrice", label: "Est. Sell",  align: "right", tip: "Best sell order price across your configured market hubs. Sell your output here for maximum revenue." },
+  { key: "avg30d",    label: "30d Avg",    align: "right", tip: "EVE's 30-day adjusted average price. Useful baseline for comparison — if Est. Sell is far above this, prices may be elevated." },
+  { key: "buyVol",    label: "Buy m³",     align: "right", tip: "Packaged volume of items to purchase (Qty to Buy × unit volume). Use this to plan freight capacity." },
   { key: "bvb",       label: "Buy vs Build", align: "right", tip: "For items you are building: compares market buy cost vs full build-path cost (materials + job fees). Positive savings = keep building; negative = buying is cheaper." },
 ];
 
@@ -157,12 +162,26 @@ function getValue(node: EnrichedNode, key: SortKey): string | number {
     case "toBuy":     return node.quantityToBuy;
     case "jobCost":   return node.jobCost ?? 0;
     case "sellPrice": return node.bestSellPrice ?? 0;
+    case "avg30d":    return node.adjusted30d ?? 0;
+    case "buyVol":    return node.quantityToBuy > 0 ? node.quantityToBuy * node.unitVolume : 0;
     case "bvb":       return node.bvbCosts?.delta ?? 0;
   }
 }
 
 function fmt(n: number): string {
   return n > 0 ? n.toLocaleString() : "—";
+}
+
+function fmtVol(m3: number): string {
+  return m3 >= 1000 ? `${(m3 / 1000).toFixed(1)}k` : m3.toFixed(1);
+}
+
+function buyVolTip(qty: number, vol: number, freightRate: number): string | undefined {
+  if (qty <= 0) return undefined;
+  const m3 = qty * vol;
+  return freightRate > 0
+    ? `${m3.toFixed(1)} m³ — est. freight: ${fmtIsk(m3 * freightRate)} @ ${fmtIsk(freightRate)}/m³`
+    : `${m3.toFixed(1)} m³ — set a freight rate in Settings to see cost`;
 }
 
 
@@ -175,9 +194,11 @@ export function GridView() {
 
   // Subscribe to prices so component re-renders when prices are updated.
   const marketPrices   = useMarketStore((s) => s.prices);
+  const marketRegions  = useMarketStore((s) => s.regions);
   const pricesFetching = useMarketStore((s) => s.fetching);
 
-  const planName = usePlanStore((s) => s.activePlan?.name ?? "build-plan");
+  const planName          = usePlanStore((s) => s.activePlan?.name ?? "build-plan");
+  const freightIskPerM3   = usePlanStore((s) => s.effectiveFreightIskPerM3);
 
   const [sortKey, setSortKey]       = useState<SortKey>("kind");
   const [sortAsc, setSortAsc]       = useState(true);
@@ -196,6 +217,32 @@ export function GridView() {
     }
     return best;
   }, [marketPrices]);
+
+  // 30d adjusted average keyed by typeId — built once per price update.
+  const adjusted30dMap = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const entry of Object.values(marketPrices)) {
+      if (entry.adjusted30d !== null && !map.has(entry.typeId)) {
+        map.set(entry.typeId, entry.adjusted30d);
+      }
+    }
+    return map;
+  }, [marketPrices]);
+
+  // Tooltip for the 30d avg cell: shows per-hub sell prices vs the average.
+  const get30dTooltip = useMemo(() => (typeId: number, avg: number | null): string => {
+    if (avg === null) return "No 30d average data available.";
+    const lines = [`30d Avg: ${fmtIsk(avg)}`];
+    for (const region of marketRegions) {
+      const entry = marketPrices[`${region.regionId}:${typeId}`];
+      if (entry?.bestSell !== null && entry?.bestSell !== undefined) {
+        const diff = ((entry.bestSell - avg) / avg) * 100;
+        const sign = diff >= 0 ? "+" : "";
+        lines.push(`${region.label}: ${fmtIsk(entry.bestSell)} (${sign}${diff.toFixed(1)}%)`);
+      }
+    }
+    return lines.join("\n");
+  }, [marketPrices, marketRegions]);
 
   // Buy vs Build costs, keyed by typeId, computed from the ORIGINAL tree
   // (flat nodes have inputs stripped so we must walk nodes before flattening).
@@ -220,9 +267,10 @@ export function GridView() {
       flat.map((n) => ({
         ...n,
         bestSellPrice: getBestSell(n.typeId),
-        bvbCosts: bvbCostsMap.get(n.typeId) ?? null,
+        adjusted30d:   adjusted30dMap.get(n.typeId) ?? null,
+        bvbCosts:      bvbCostsMap.get(n.typeId) ?? null,
       })),
-    [flat, getBestSell, bvbCostsMap],
+    [flat, getBestSell, adjusted30dMap, bvbCostsMap],
   );
 
   // ── Profit summary ────────────────────────────────────────────────────────
@@ -248,7 +296,12 @@ export function GridView() {
     const profit = revenue - matCost - jobCost;
     const margin = revenue > 0 ? (profit / revenue) * 100 : null;
 
-    return { revenue, matCost, jobCost, profit, margin };
+    // Total m³ of items to purchase (buy nodes with quantity > 0).
+    const buyVolume = flat
+      .filter((n) => n.quantityToBuy > 0)
+      .reduce((sum, n) => sum + n.quantityToBuy * n.unitVolume, 0);
+
+    return { revenue, matCost, jobCost, profit, margin, buyVolume };
   }, [nodes, flat, getBestSell]);
 
   const filtered = useMemo(() => {
@@ -269,7 +322,7 @@ export function GridView() {
   }, [filtered, sortKey, sortAsc]);
 
   function handleExportCsv() {
-    const headers = ["Item", "Kind", "Runs", "Needed", "Produced", "On Hand", "In Jobs", "To Buy", "Job Cost ISK", "Est Sell ISK", "Buy vs Build"];
+    const headers = ["Item", "Kind", "Runs", "Needed", "Produced", "On Hand", "In Jobs", "To Buy", "Job Cost ISK", "Est Sell ISK", "30d Avg ISK", "Buy m3", "Buy vs Build"];
     const rows = sorted.map((n) => [
       n.typeName,
       kindLabel(n),
@@ -281,6 +334,8 @@ export function GridView() {
       n.quantityToBuy > 0 ? n.quantityToBuy : null,
       n.jobCost ?? null,
       n.bestSellPrice ?? null,
+      n.adjusted30d ?? null,
+      n.quantityToBuy > 0 ? n.quantityToBuy * n.unitVolume : null,
       n.bvbCosts !== null
         ? (n.bvbCosts.delta >= 0 ? `Build saves ${n.bvbCosts.delta.toFixed(0)}` : `Buy saves ${Math.abs(n.bvbCosts.delta).toFixed(0)}`)
         : null,
@@ -331,7 +386,7 @@ export function GridView() {
     );
   }
 
-  const { revenue, matCost, jobCost, profit, margin } = profitSummary;
+  const { revenue, matCost, jobCost, profit, margin, buyVolume } = profitSummary;
   const hasPrices = revenue > 0 || matCost > 0;
 
   return (
@@ -366,6 +421,12 @@ export function GridView() {
           >
             {margin.toFixed(1)}%
           </span>
+        )}
+        {buyVolume > 0 && (
+          <div className="gv-profit-stat gv-profit-stat-sep" title="Total packaged volume of all items to purchase. Use this to estimate freight capacity needed.">
+            <span className="gv-profit-label">Buy Vol.</span>
+            <span className="gv-profit-val">{fmtVol(buyVolume)} m³</span>
+          </div>
         )}
         <span className="gv-profit-spacer" />
         {pricesFetching && <span className="gv-profit-fetching">Updating prices…</span>}
@@ -424,7 +485,7 @@ export function GridView() {
           <tbody>
             {sorted.map((node) => (
               <tr
-                key={node.typeId}
+                key={`${node.typeId}_${node.kind.type}`}
                 className="gv-row"
                 onClick={() => selectNode(String(node.typeId))}
               >
@@ -447,6 +508,13 @@ export function GridView() {
                 <td className="gv-td gv-td-right gv-muted">{fmt(node.quantityToBuy)}</td>
                 <td className="gv-td gv-td-right">{fmtIsk(node.jobCost)}</td>
                 <td className="gv-td gv-td-right gv-sell-price">{fmtIsk(node.bestSellPrice)}</td>
+                <td className="gv-td gv-td-right gv-muted" title={get30dTooltip(node.typeId, node.adjusted30d)}>{fmtIsk(node.adjusted30d)}</td>
+                <td
+                  className="gv-td gv-td-right gv-muted"
+                  title={buyVolTip(node.quantityToBuy, node.unitVolume, freightIskPerM3)}
+                >
+                  {node.quantityToBuy > 0 ? fmtVol(node.quantityToBuy * node.unitVolume) : "—"}
+                </td>
                 <td className="gv-td gv-td-right">
                   {node.bvbCosts !== null ? (
                     <span className={node.bvbCosts.delta >= 0 ? "gv-bvb-build" : "gv-bvb-buy"}>
