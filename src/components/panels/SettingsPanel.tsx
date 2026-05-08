@@ -35,6 +35,16 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
   const [profile, setProfile] = useState<StructureProfile>(initial);
   const [systemName, setSystemName] = useState<string | null>(null);
   const [categories, setCategories] = useState<IndustryCategory[]>([]);
+  const [taxInput, setTaxInput]           = useState(() => (initial.facilityTax * 100).toFixed(1));
+  const [modifierInput, setModifierInput] = useState(() => String(initial.spaceModifier));
+
+  // Keep string inputs in sync if parent switches to a different profile without unmounting.
+  useEffect(() => {
+    setProfile(initial);
+    setTaxInput((initial.facilityTax * 100).toFixed(1));
+    setModifierInput(String(initial.spaceModifier));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial.id]);
 
   useEffect(() => {
     getIndustryCategories().then(setCategories).catch(() => {});
@@ -121,8 +131,14 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
             min={0}
             max={100}
             step={0.1}
-            value={(profile.facilityTax * 100).toFixed(1)}
-            onChange={(e) => setField("facilityTax", parseFloat(e.target.value) / 100 || 0)}
+            value={taxInput}
+            onChange={(e) => setTaxInput(e.target.value)}
+            onBlur={(e) => {
+              const v = parseFloat(e.target.value);
+              const clamped = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
+              setField("facilityTax", clamped / 100);
+              setTaxInput(clamped.toFixed(1));
+            }}
           />
         </div>
       </div>
@@ -139,8 +155,14 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
           type="number"
           min={0}
           step={0.01}
-          value={profile.spaceModifier}
-          onChange={(e) => setField("spaceModifier", parseFloat(e.target.value) || 1)}
+          value={modifierInput}
+          onChange={(e) => setModifierInput(e.target.value)}
+          onBlur={(e) => {
+            const v = parseFloat(e.target.value);
+            const valid = isNaN(v) || v <= 0 ? 1 : v;
+            setField("spaceModifier", valid);
+            setModifierInput(String(valid));
+          }}
         />
         <span className="sp-hint">
           1.0 = no bonus · 0.75 = Sotiyo −25% job cost · 0.85 = Azbel −15%
