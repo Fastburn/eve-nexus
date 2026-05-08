@@ -127,7 +127,7 @@ export function Shell() {
         {mainView === "market"  && <MarketView />}
       </main>
 
-      {rightPanelOpen && (
+      {rightPanelOpen && (mainView === "graph" || mainView === "grid") && (
         <div className="shell-panel">
           <RightPanel />
         </div>

@@ -211,13 +211,15 @@ export function Toolbar() {
           {solving ? "Solving…" : "Solve"}
         </button>
 
-        <button
-          className={`toolbar-panel-toggle${rightPanelOpen ? " active" : ""}`}
-          onClick={() => rightPanelOpen ? closeRightPanel() : openRightPanel()}
-          title={rightPanelOpen ? "Close panel" : "Open panel"}
-        >
-          {rightPanelOpen ? "◀" : "▶"}
-        </button>
+        {(mainView === "graph" || mainView === "grid") && (
+          <button
+            className={`toolbar-panel-toggle${rightPanelOpen ? " active" : ""}`}
+            onClick={() => rightPanelOpen ? closeRightPanel() : openRightPanel()}
+            title={rightPanelOpen ? "Close panel" : "Open panel"}
+          >
+            {rightPanelOpen ? "◀" : "▶"}
+          </button>
+        )}
       </div>
     </div>
   );
