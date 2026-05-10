@@ -138,9 +138,9 @@ impl AuthManager {
 
         // ── Local callback server ─────────────────────────────────────────────
         // Fixed port so the redirect URI is predictable and can be registered
-        // in the EVE developer portal as http://localhost:21468/callback
+        // in the EVE developer portal as http://localhost:21468
         const CALLBACK_PORT: u16 = 21468;
-        let listener = TcpListener::bind(("127.0.0.1", CALLBACK_PORT)).await?;
+        let listener = TcpListener::bind(("0.0.0.0", CALLBACK_PORT)).await?;
         let redirect_uri = format!("http://localhost:{CALLBACK_PORT}");
 
         // ── Open browser ──────────────────────────────────────────────────────

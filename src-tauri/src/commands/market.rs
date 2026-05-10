@@ -96,7 +96,6 @@ pub async fn fetch_market_prices(
     let regions = local.0.get_market_regions().map_err(CommandError::from)?;
 
     let characters = local.0.get_characters().map_err(CommandError::from)?;
-    let character_id = characters.first().map(|(id, _)| *id);
 
     // Read adjusted prices from cache — refreshed on startup via refresh_all_esi_data.
     let adjusted = local.0.get_adjusted_prices_for(&type_ids).unwrap_or_default();
@@ -104,18 +103,7 @@ pub async fn fetch_market_prices(
     let mut out = Vec::new();
     for region in regions {
         let prices = if let Some(structure_id) = region.structure_id {
-            if let Some(char_id) = character_id {
-                endpoints::fetch_structure_market_prices(
-                    &esi.0,
-                    &local.0,
-                    structure_id,
-                    char_id,
-                    &type_ids,
-                    300,
-                )
-                .await
-                .unwrap_or_default()
-            } else {
+            if characters.is_empty() {
                 return Err(CommandError::InvalidInput {
                     message: format!(
                         "Structure market hub '{}' requires a logged-in character. Add a character in Settings > Characters.",
@@ -123,6 +111,17 @@ pub async fn fetch_market_prices(
                     ),
                 });
             }
+            // Try each character in order — the first with docking access wins.
+            let mut structure_prices = vec![];
+            for (char_id, _) in &characters {
+                if let Ok(p) = endpoints::fetch_structure_market_prices(
+                    &esi.0, &local.0, structure_id, *char_id, &type_ids, 300,
+                ).await {
+                    structure_prices = p;
+                    break;
+                }
+            }
+            structure_prices
         } else {
             endpoints::fetch_market_prices(
                 &esi.0,
@@ -277,17 +276,20 @@ pub async fn search_market_structures(
         return Ok(vec![]);
     }
     let characters = local.0.get_characters().map_err(CommandError::from)?;
-    let character_id = characters
-        .first()
-        .map(|(id, _)| *id)
-        .ok_or_else(|| CommandError::InvalidInput {
+    if characters.is_empty() {
+        return Err(CommandError::InvalidInput {
             message: "No logged-in character — please add a character in the Characters panel first.".into(),
-        })?;
+        });
+    }
 
-    let results = endpoints::search_market_structures(&esi.0, &local.0, character_id, &query, 20)
-        .await
-        .map_err(|e| CommandError::InvalidInput { message: format!("Structure search failed: {e}") })?;
-
+    // Try each character in order until one succeeds (docking access may differ).
+    let mut results = vec![];
+    for (char_id, _) in &characters {
+        if let Ok(r) = endpoints::search_market_structures(&esi.0, &local.0, *char_id, &query, 20).await {
+            results = r;
+            break;
+        }
+    }
     Ok(results
         .into_iter()
         .map(|(id, name)| StructureSearchResult { structure_id: id, structure_name: name })

@@ -43,7 +43,8 @@ export function CharactersPanel() {
     setAdding(true);
     setAddError(null);
     try {
-      await add();
+      const info = await add();
+      await handleRefreshOne(info.characterId);
     } catch (e) {
       setAddError(String(e));
     } finally {
