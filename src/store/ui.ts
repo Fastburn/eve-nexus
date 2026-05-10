@@ -12,7 +12,8 @@ export type ThemeId = "default" | "amarr" | "caldari" | "gallente" | "minmatar" 
 /** Single source of truth for valid theme IDs — used for validation and the settings picker. */
 export const VALID_THEMES: ThemeId[] = ["default", "amarr", "caldari", "gallente", "minmatar", "jove", "light"];
 
-const THEME_STORAGE_KEY = "eve-nexus-theme";
+const THEME_STORAGE_KEY    = "eve-nexus-theme";
+const SIDEBAR_STORAGE_KEY  = "eve-nexus-sidebar-collapsed";
 
 function loadTheme(): ThemeId {
   try {
@@ -25,6 +26,14 @@ function loadTheme(): ThemeId {
 function applyTheme(id: ThemeId) {
   document.documentElement.setAttribute("data-theme", id);
   try { localStorage.setItem(THEME_STORAGE_KEY, id); } catch { /* ignore */ }
+}
+
+function loadSidebarCollapsed(): boolean {
+  try { return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1"; } catch { return false; }
+}
+
+function saveSidebarCollapsed(v: boolean) {
+  try { localStorage.setItem(SIDEBAR_STORAGE_KEY, v ? "1" : "0"); } catch { /* ignore */ }
 }
 
 interface UiState {
@@ -64,6 +73,9 @@ interface UiState {
   // ── Theme ─────────────────────────────────────────────────────────────────
   theme: ThemeId;
 
+  // ── Sidebar ───────────────────────────────────────────────────────────────
+  sidebarCollapsed: boolean;
+
   // ── Actions ───────────────────────────────────────────────────────────────
   setMainView: (view: MainView) => void;
   setTheme: (theme: ThemeId) => void;
@@ -78,6 +90,7 @@ interface UiState {
   setShowAbout: (show: boolean) => void;
   setShowSettings: (show: boolean) => void;
   setShowCharacters: (show: boolean) => void;
+  toggleSidebarCollapsed: () => void;
 }
 
 // Apply saved theme immediately on module load (before first render).
@@ -96,6 +109,7 @@ export const useUiStore = create<UiState>((set) => ({
   showSettings: false,
   showCharacters: false,
   theme: loadTheme(),
+  sidebarCollapsed: loadSidebarCollapsed(),
 
   setMainView: (mainView) => set({ mainView }),
 
@@ -132,4 +146,11 @@ export const useUiStore = create<UiState>((set) => ({
     applyTheme(theme);
     set({ theme });
   },
+
+  toggleSidebarCollapsed: () =>
+    set((s) => {
+      const next = !s.sidebarCollapsed;
+      saveSidebarCollapsed(next);
+      return { sidebarCollapsed: next };
+    }),
 }));

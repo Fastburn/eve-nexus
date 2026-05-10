@@ -24,10 +24,12 @@ export function Sidebar() {
 
   const profiles     = useSettingsStore((s) => s.structureProfiles);
 
-  const setMainView      = useUiStore((s) => s.setMainView);
-  const setShowAbout     = useUiStore((s) => s.setShowAbout);
-  const setShowSettings  = useUiStore((s) => s.setShowSettings);
-  const setShowCharacters= useUiStore((s) => s.setShowCharacters);
+  const setMainView             = useUiStore((s) => s.setMainView);
+  const setShowAbout            = useUiStore((s) => s.setShowAbout);
+  const setShowSettings         = useUiStore((s) => s.setShowSettings);
+  const setShowCharacters       = useUiStore((s) => s.setShowCharacters);
+  const sidebarCollapsed        = useUiStore((s) => s.sidebarCollapsed);
+  const toggleSidebarCollapsed  = useUiStore((s) => s.toggleSidebarCollapsed);
 
   const [typeNames, setTypeNames]     = useState<Record<number, string>>({});
   const [renamingId, setRenamingId]   = useState<string | null>(null);
@@ -100,6 +102,50 @@ export function Sidebar() {
     updateTarget(typeId, { structureProfileId: raw === "" ? null : raw });
   }
 
+  if (sidebarCollapsed) {
+    return (
+      <>
+      <nav className="sidebar sidebar-collapsed-strip">
+        <button
+          className="sidebar-collapse-btn"
+          onClick={toggleSidebarCollapsed}
+          title="Expand sidebar"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <div className="sidebar-strip-icons">
+          <button className="sidebar-footer-btn" title="Characters &amp; ESI" onClick={() => setShowCharacters(true)}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <circle cx="7" cy="4.5" r="2.2" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M2.5 12.5c0-2.485 2.015-4.5 4.5-4.5s4.5 2.015 4.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <button className="sidebar-footer-btn" title="Settings" onClick={() => setShowSettings(true)}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <line x1="1.5" y1="4" x2="12.5" y2="4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <circle cx="9" cy="4" r="1.6" fill="var(--surface-1)" stroke="currentColor" strokeWidth="1.4"/>
+              <line x1="1.5" y1="10" x2="12.5" y2="10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <circle cx="5" cy="10" r="1.6" fill="var(--surface-1)" stroke="currentColor" strokeWidth="1.4"/>
+            </svg>
+          </button>
+          <button className="sidebar-footer-btn" title="About Eve Nexus" onClick={() => setShowAbout(true)}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.4"/>
+              <line x1="7" y1="6.5" x2="7" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="7" cy="4.2" r="0.9" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+      </nav>
+      {showEftImport && (
+        <EftImportDialog onClose={() => setShowEftImport(false)} onImport={handleEftImport} />
+      )}
+      </>
+    );
+  }
+
   return (
     <>
     <nav className="sidebar">
@@ -140,6 +186,15 @@ export function Sidebar() {
               <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.4"/>
               <line x1="7" y1="6.5" x2="7" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               <circle cx="7" cy="4.2" r="0.9" fill="currentColor"/>
+            </svg>
+          </button>
+          <button
+            className="sidebar-footer-btn sidebar-collapse-btn"
+            onClick={toggleSidebarCollapsed}
+            title="Collapse sidebar"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         </div>

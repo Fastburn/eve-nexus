@@ -16,14 +16,15 @@
   padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  gap: var(--sp-1);
+  gap: 0;
 }
 
 .sidebar-header-btns {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .sidebar-logo-wrap {
@@ -34,8 +35,6 @@
 }
 
 .sidebar-logo-img {
-  /* Natural aspect ratio of the horizontal lockup (117×54 ≈ 2.17:1).
-     Constrain by height so it never overflows the header, and let width follow. */
   height: 42px;
   width: auto;
   display: block;
@@ -288,6 +287,48 @@
   font-size: 12px;
   color: var(--text-3);
   text-align: center;
+}
+
+/* ── Collapsed strip ────────────────────────────────────────────────────────── */
+.sidebar-collapsed-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--sp-2) 0;
+  gap: var(--sp-1);
+  overflow: hidden;
+}
+
+.sidebar-strip-icon-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.sidebar-strip-icons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  color: var(--text-3);
+  transition: color 0.1s, background 0.1s;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 /* ── Header / footer buttons (icon-only in header) ──────────────────────────── */

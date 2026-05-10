@@ -21,6 +21,19 @@
     "statusbar statusbar statusbar";
 }
 
+.shell.sidebar-collapsed {
+  grid-template-columns: 44px 1fr;
+}
+
+.shell.sidebar-collapsed.panel-open {
+  grid-template-columns: 44px 1fr var(--right-panel-w);
+}
+
+.shell.sidebar-collapsed .sde-banner,
+.shell.sidebar-collapsed .update-banner {
+  left: 44px;
+}
+
 .shell-sidebar    { grid-area: sidebar; }
 .shell-toolbar    { grid-area: toolbar; }
 .shell-main       { grid-area: main;   overflow: hidden; position: relative; display: flex; flex-direction: column; }

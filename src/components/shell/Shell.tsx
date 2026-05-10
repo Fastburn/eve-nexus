@@ -14,12 +14,13 @@ import { MarketView } from "../../views/MarketView";
 import "./Shell.css";
 
 export function Shell() {
-  const rightPanelOpen  = useUiStore((s) => s.rightPanelOpen);
-  const closeRightPanel = useUiStore((s) => s.closeRightPanel);
-  const showAbout       = useUiStore((s) => s.showAbout);
-  const setShowAbout    = useUiStore((s) => s.setShowAbout);
-  const showConsent     = useUiStore((s) => s.showConsentDialog);
-  const mainView        = useUiStore((s) => s.mainView);
+  const rightPanelOpen      = useUiStore((s) => s.rightPanelOpen);
+  const closeRightPanel     = useUiStore((s) => s.closeRightPanel);
+  const showAbout           = useUiStore((s) => s.showAbout);
+  const setShowAbout        = useUiStore((s) => s.setShowAbout);
+  const showConsent         = useUiStore((s) => s.showConsentDialog);
+  const mainView            = useUiStore((s) => s.mainView);
+  const sidebarCollapsed    = useUiStore((s) => s.sidebarCollapsed);
 
   const activePlan  = usePlanStore((s) => s.activePlan);
   const targets     = usePlanStore((s) => s.targets);
@@ -88,7 +89,7 @@ export function Shell() {
   ]);
 
   return (
-    <div className={`shell${rightPanelOpen ? " panel-open" : ""}`}>
+    <div className={`shell${rightPanelOpen ? " panel-open" : ""}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <div className="shell-sidebar">
         <Sidebar />
       </div>
