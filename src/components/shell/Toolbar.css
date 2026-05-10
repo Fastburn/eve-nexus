@@ -41,6 +41,19 @@
   flex-shrink: 0;
 }
 
+.toolbar-saved-flash {
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 600;
+  animation: toolbar-fade-out 1.5s ease-out forwards;
+}
+
+@keyframes toolbar-fade-out {
+  0%   { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .toolbar-save-btn {
   padding: 3px var(--sp-2);
   font-size: 11px;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePlanStore, useSolverStore, useSettingsStore, useUiStore } from "../../store";
 import "./Toolbar.css";
 
@@ -9,9 +9,11 @@ export function Toolbar() {
   const [showSaveInput, setShowSaveInput]   = useState(false);
   const [editingMult, setEditingMult]       = useState(false);
   const [multInput, setMultInput]           = useState("");
+  const [savedFlash, setSavedFlash]         = useState(false);
 
   const activePlan         = usePlanStore((s) => s.activePlan);
   const isDirty            = usePlanStore((s) => s.isDirty);
+  const lastSavedAt        = usePlanStore((s) => s.lastSavedAt);
   const targets            = usePlanStore((s) => s.targets);
   const saveCurrent        = usePlanStore((s) => s.saveCurrent);
   const effectiveMultiplier   = usePlanStore((s) => s.effectiveMultiplier);
@@ -31,6 +33,13 @@ export function Toolbar() {
   const rightPanelOpen  = useUiStore((s) => s.rightPanelOpen);
   const openRightPanel  = useUiStore((s) => s.openRightPanel);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
+
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    setSavedFlash(true);
+    const t = setTimeout(() => setSavedFlash(false), 1500);
+    return () => clearTimeout(t);
+  }, [lastSavedAt]);
 
   function handleSolve() {
     if (targets.length === 0 || solving) return;
@@ -127,6 +136,7 @@ export function Toolbar() {
               {activePlan?.name ?? "No plan open"}
             </span>
             {isDirty && <span className="toolbar-dirty-dot" title="Unsaved changes" />}
+            {savedFlash && <span className="toolbar-saved-flash">Saved ✓</span>}
             {(isDirty || !activePlan) && targets.length > 0 && (
               <button className="toolbar-save-btn" onClick={handleSaveClick}>
                 {activePlan ? "Save" : "Save as…"}

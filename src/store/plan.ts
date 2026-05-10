@@ -22,6 +22,8 @@ interface PlanState {
   targets: BuildTarget[];
   /** True when targets differ from the last saved state. */
   isDirty: boolean;
+  /** Timestamp (Date.now()) of the last successful save — used for flash feedback. */
+  lastSavedAt: number | null;
 
   // ── Global defaults (loaded once on init) ─────────────────────────────────
   globalMultiplier: number;
@@ -84,6 +86,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   activePlan: null,
   targets: [],
   isDirty: false,
+  lastSavedAt: null,
   globalMultiplier: 1.0,
   globalFreightIskPerM3: 0.0,
   effectiveMultiplier: 1.0,
@@ -166,7 +169,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       freightIskPerM3: activePlan?.freightIskPerM3,
     };
     await savePlan(plan);
-    set({ activePlan: plan, isDirty: false });
+    set({ activePlan: plan, isDirty: false, lastSavedAt: Date.now() });
     // Refresh summary list so the sidebar stays current.
     set({ plans: await listPlans() });
   },
