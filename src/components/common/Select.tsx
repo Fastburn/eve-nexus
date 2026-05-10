@@ -22,13 +22,21 @@ export function Select({ value, onChange, options, className = "", title }: Prop
 
   useEffect(() => {
     if (!open) return;
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    let downOutside = false;
+    function onDown(e: MouseEvent) {
+      downOutside = !(ref.current?.contains(e.target as Node) ?? false);
+    }
+    function onUp(e: MouseEvent) {
+      if (downOutside && !(ref.current?.contains(e.target as Node) ?? false)) {
         setOpen(false);
       }
     }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mouseup", onUp);
+    };
   }, [open]);
 
   function pick(val: string) {

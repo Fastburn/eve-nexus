@@ -390,14 +390,22 @@ function MarketHubEditor({
   }, [structQuery, isStructure, selectedStructure, assetStructures]);
 
   useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (structContainer.current && !structContainer.current.contains(e.target as Node)) {
+    let downOutside = false;
+    function onDown(e: MouseEvent) {
+      downOutside = !(structContainer.current?.contains(e.target as Node) ?? false);
+    }
+    function onUp(e: MouseEvent) {
+      if (downOutside && !(structContainer.current?.contains(e.target as Node) ?? false)) {
         setStructOpen(false);
         if (selectedStructure) setStructQuery(selectedStructure.structureName);
       }
     }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mouseup", onUp);
+    };
   }, [selectedStructure]);
 
   function handleSelectStructure(s: StructureSearchResult) {

@@ -42,15 +42,22 @@ export function TypePicker({
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
-  // Click outside to close
   useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+    let downOutside = false;
+    function onDown(e: MouseEvent) {
+      downOutside = !(containerRef.current?.contains(e.target as Node) ?? false);
+    }
+    function onUp(e: MouseEvent) {
+      if (downOutside && !(containerRef.current?.contains(e.target as Node) ?? false)) {
         setOpen(false);
       }
     }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("mouseup", onUp);
+    };
   }, []);
 
   function handleSelect(type: TypeSummary) {
