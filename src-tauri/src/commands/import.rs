@@ -81,7 +81,11 @@ pub async fn import_eft_fit(
 
         // Remaining lines: "Item Name" (qty 1) or "Item Name xN".
         let (name, qty) = if let Some((n, q)) = line.rsplit_once(" x") {
-            if let Ok(qty) = q.parse::<u32>() { (n.trim(), qty) } else { (line, 1u32) }
+            if let Ok(qty) = q.trim().parse::<u64>() {
+                (n.trim(), qty.min(u32::MAX as u64) as u32)
+            } else {
+                (line, 1u32)
+            }
         } else {
             (line, 1u32)
         };

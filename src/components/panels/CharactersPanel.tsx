@@ -46,7 +46,10 @@ export function CharactersPanel() {
       const info = await add();
       await handleRefreshOne(info.characterId);
     } catch (e) {
-      setAddError(String(e));
+      const msg = (e && typeof e === "object" && "message" in e)
+        ? String((e as Record<string, unknown>).message)
+        : String(e);
+      setAddError(msg);
     } finally {
       setAdding(false);
     }
