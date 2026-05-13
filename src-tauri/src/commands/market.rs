@@ -121,6 +121,9 @@ pub async fn fetch_market_prices(
                     break;
                 }
             }
+            if structure_prices.is_empty() {
+                eprintln!("[market] No character has docking access to structure {structure_id} — prices unavailable");
+            }
             structure_prices
         } else {
             endpoints::fetch_market_prices(
@@ -239,11 +242,11 @@ pub async fn get_cheapest_systems(
 
     if rows.len() < limit {
         let indices = local.0.get_cost_indices().map_err(CommandError::from)?;
-        let col_key = if activity == "reaction" { "reaction" } else { "manufacturing" };
+        let col_key = if activity == "reaction" { "reaction" } else if activity == "invention" { "invention" } else { "manufacturing" };
         let mut sorted: Vec<(SolarSystemId, f64)> = indices
             .iter()
             .filter_map(|(id, ci)| {
-                let v = if col_key == "reaction" { ci.reaction } else { ci.manufacturing };
+                let v = match col_key { "reaction" => ci.reaction, "invention" => ci.invention, _ => ci.manufacturing };
                 if v > 0.0 { Some((*id, v)) } else { None }
             })
             .collect();

@@ -123,6 +123,7 @@ pub async fn fetch_adjusted_prices(
     let prices: HashMap<TypeId, f64> = raw
         .into_iter()
         .filter_map(|e| e.adjusted_price.map(|p| (e.type_id, p)))
+        .filter(|(_, p)| p.is_finite() && *p >= 0.0)
         .collect();
 
     local.replace_adjusted_prices(&prices).map_err(esi_local_err)?;
@@ -236,7 +237,10 @@ pub async fn fetch_character_assets(
                     // structure ID. Follow the chain; if the parent isn't in our
                     // inventory but the ID is in the structure range (> 1T), capture it.
                     depth += 1;
-                    if depth > 10 { break; }
+                    if depth > 10 {
+                        eprintln!("[esi] asset chain-walk exceeded depth 10 at location_id={loc_id} — truncated");
+                        break;
+                    }
                     match parent.get(&loc_id) {
                         Some((next_loc, next_type)) => {
                             loc_id = *next_loc;
@@ -326,7 +330,11 @@ pub async fn fetch_character_jobs(
             // "delivered", "cancelled", "reverted" must not count as in-progress.
             match j.status.as_str() {
                 "active" | "paused" | "ready" => {}
-                _ => return None,
+                "delivered" | "cancelled" | "reverted" => return None,
+                other => {
+                    eprintln!("[esi] unknown job status {other:?} for job {} — skipping", j.job_id);
+                    return None;
+                }
             }
 
             let activity_id = match j.activity_id {
@@ -674,7 +682,10 @@ pub async fn fetch_market_prices(
         for (type_id, result) in handles {
             let (orders, _) = match result {
                 Ok(v) => v,
-                Err(_) => continue, // skip on error; stale cached data (if any) stays
+                Err(e) => {
+                    eprintln!("[market] price fetch failed for type {type_id} in region {region_id}: {e}");
+                    continue;
+                }
             };
             let best_sell = orders
                 .iter()

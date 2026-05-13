@@ -262,11 +262,17 @@ fn parse_expiry(response: &Response) -> Option<DateTime<Utc>> {
 
 /// Parse `X-Pages` for paginated endpoints.
 fn parse_x_pages(response: &Response) -> Option<u32> {
-    response
+    let pages = response
         .headers()
         .get("x-pages")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.parse().ok())
+        .and_then(|s| s.parse::<u32>().ok())?;
+    if pages > 200 {
+        eprintln!("[esi] X-Pages={pages} exceeds sanity limit — capping at 200");
+        Some(200)
+    } else {
+        Some(pages)
+    }
 }
 
 // ─── Managed state ────────────────────────────────────────────────────────────
