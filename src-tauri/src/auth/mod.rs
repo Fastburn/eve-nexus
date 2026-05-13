@@ -377,10 +377,12 @@ async fn wait_for_callback(
     }
 
     // Respond so the browser doesn't hang.
-    let (title, message, is_success) = if code.is_some() {
-        ("Authentication Successful", "You can close this tab and return to Eve Nexus.", true)
+    // Both code and state must be present and valid for a true success.
+    let is_success = code.is_some() && state.as_deref() == Some(expected_state);
+    let (title, message) = if is_success {
+        ("Authentication Successful", "You can close this tab and return to Eve Nexus.")
     } else {
-        ("Authentication Failed", "Something went wrong. Please close this tab and try again.", false)
+        ("Authentication Failed", "Something went wrong. Please close this tab and try again.")
     };
     let accent = if is_success { "#4d9de0" } else { "#e05252" };
     let body = format!(r#"<!DOCTYPE html>
@@ -516,7 +518,9 @@ fn token_store(local: &LocalDb, key: &str, value: &str) -> Result<(), AuthError>
         .map_err(|e| AuthError::Keychain(e.to_string()))?;
     // Also attempt the OS keychain as a bonus (ignored if unavailable).
     if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, key) {
-        let _ = entry.set_password(value);
+        if let Err(e) = entry.set_password(value) {
+            eprintln!("[auth] keychain write failed for {key}: {e} (DB fallback is active)");
+        }
     }
     Ok(())
 }
