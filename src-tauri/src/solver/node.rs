@@ -262,7 +262,7 @@ fn runs_needed(quantity: u64, output_per_run: u64) -> u32 {
     if output_per_run == 0 {
         return 0;
     }
-    ((quantity + output_per_run - 1) / output_per_run) as u32
+    (quantity.saturating_add(output_per_run - 1) / output_per_run).min(u32::MAX as u64) as u32
 }
 
 /// Read the actual available quantity for display, then consume up to `limit`.

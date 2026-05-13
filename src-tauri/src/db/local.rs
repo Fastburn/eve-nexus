@@ -177,7 +177,7 @@ impl LocalDb {
                 let ts = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_secs())
-                    .unwrap_or(0);
+                    .unwrap_or_else(|_| rand::random::<u64>() & 0xFFFF_FFFF);
                 let backup = path.with_file_name(format!("local.sqlite.corrupt.{ts}"));
                 let _ = std::fs::rename(path, &backup);
                 eprintln!("[eve-nexus] corrupt DB saved to {}", backup.display());
@@ -212,6 +212,7 @@ impl LocalDb {
 
     fn conn(&self) -> LocalResult<std::sync::MutexGuard<'_, Connection>> {
         self.0.lock().map_err(|_| {
+            eprintln!("[eve-nexus] local DB mutex poisoned — a previous operation panicked while holding the lock");
             LocalDbError::Sqlite(rusqlite::Error::SqliteFailure(
                 rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_BUSY),
                 Some("local db mutex poisoned".into()),
@@ -951,13 +952,17 @@ impl LocalDb {
         assets: &HashMap<crate::types::TypeId, u64>,
     ) -> LocalResult<()> {
         let conn = self.conn()?;
-        let mut stmt = conn.prepare(
-            "INSERT INTO esi_assets (character_id, type_id, quantity) VALUES (?1, ?2, ?3)
-             ON CONFLICT(character_id, type_id) DO UPDATE SET quantity = quantity + excluded.quantity",
-        )?;
-        for (&type_id, &qty) in assets {
-            stmt.execute(rusqlite::params![character_id, type_id, qty])?;
+        let tx = conn.unchecked_transaction()?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO esi_assets (character_id, type_id, quantity) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(character_id, type_id) DO UPDATE SET quantity = quantity + excluded.quantity",
+            )?;
+            for (&type_id, &qty) in assets {
+                stmt.execute(rusqlite::params![character_id, type_id, qty])?;
+            }
         }
+        tx.commit()?;
         Ok(())
     }
 
@@ -1059,6 +1064,8 @@ impl LocalDb {
             return Ok(HashMap::new());
         }
         let conn = self.conn()?;
+        // Safety: placeholders are "?1,?2,..." — integers only, never user values.
+        // Values are bound separately via params below. Do not change to value interpolation.
         let placeholders = type_ids.iter().enumerate()
             .map(|(i, _)| format!("?{}", i + 1))
             .collect::<Vec<_>>()
