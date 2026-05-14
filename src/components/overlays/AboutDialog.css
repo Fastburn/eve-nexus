@@ -70,6 +70,94 @@
   color: var(--text-3);
 }
 
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.about-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.about-tab {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.about-tab:hover {
+  color: var(--text);
+}
+
+.about-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ── Changelog ───────────────────────────────────────────────────────────── */
+.about-changelog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.about-changelog-version {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.about-changelog-tag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.about-changelog-date {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.about-changelog-section {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-top: var(--sp-2);
+}
+
+.about-changelog-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding-left: var(--sp-4);
+  margin: 0;
+}
+
+.about-changelog-list li {
+  color: var(--text-2);
+}
+
+.about-changelog-summary {
+  font-size: 11px;
+  color: var(--text-3);
+  margin: 0;
+}
+
+.about-changelog-initial {
+  color: var(--text-3);
+  font-size: 12px;
+  margin: 0;
+}
+
 /* ── Body ────────────────────────────────────────────────────────────────── */
 .about-body {
   display: flex;

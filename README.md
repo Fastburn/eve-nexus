@@ -1,6 +1,6 @@
 # Eve-Nexus
 
-![Version](https://img.shields.io/badge/version-0.0.1-blue)
+![Version](https://img.shields.io/badge/version-0.0.2-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-green)
 ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8D8)
@@ -14,16 +14,18 @@ Eve-Nexus takes your characters' blueprints, assets, and active jobs from ESI an
 ## Features
 
 - **Build graph** — visual node graph of the full production chain
-- **Grid view** — sortable spreadsheet with all quantities, job costs, and sell prices
+- **Grid view** — sortable spreadsheet with quantities, job costs, sell prices, 30-day price averages, and buy volume
 - **Profitability** — revenue, material cost, job cost, and margin calculated per plan
 - **Buy vs Build** — per-node comparison using live market prices
 - **System cost flagging** — cost index on structure profiles, cheapest alternatives surfaced
 - **Market restock planner** — track target sell quantities, surface deficits, margin threshold alerts
 - **Advisor** — skill gap analysis, slot utilisation, blueprint backlog, industry tips
 - **Blueprint browser** — searchable SDE catalogue with owned blueprint overlay
-- **Multi-character** — assets, skills, and jobs across all authenticated characters
+- **Multi-account** — add multiple EVE characters; assets, skills, and jobs are aggregated across all of them
 - **EFT fit import** — paste any ship fitting to generate a full bill of materials
-- **Corp assets** — directors can include corp blueprints and assets alongside personal data
+- **Corp assets** — characters with Director role can switch between personal, corp, or combined assets and blueprints per character
+- **Movable windows** — Settings, Characters, and EFT Import dialogs can be dragged anywhere on screen
+- **Collapsible sidebar** — collapse the sidebar to a slim icon strip to maximise workspace
 - **Multi-theme** — Default, Amarr, Caldari, Gallente, Minmatar, Jove, Light
 
 ---
