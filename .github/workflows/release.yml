@@ -86,4 +86,4 @@ jobs:
             > First time? Windows may show a SmartScreen prompt — click **More info → Run anyway**.
             > This will go away once code signing is in place.
           releaseDraft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || true }}
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
