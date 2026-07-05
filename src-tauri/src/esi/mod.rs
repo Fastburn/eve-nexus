@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ESI HTTP client with local caching.
 //!
 //! `EsiClient` enforces all hard ESI rules from AGENTS.md:
@@ -73,8 +76,21 @@ impl ErrorBudget {
         }
     }
 
-    fn is_exhausted(&self) -> bool {
-        self.remaining == 0
+    fn is_exhausted(&mut self) -> bool {
+        if self.remaining > 0 {
+            return false;
+        }
+        // ESI resets the error budget every minute; once the reset window has
+        // passed, assume it's clear again rather than staying locked out forever.
+        match self.reset_at {
+            Some(reset_at) if Utc::now() >= reset_at => {
+                self.remaining = 100;
+                self.reset_at = None;
+                false
+            }
+            Some(_) => true,
+            None => true,
+        }
     }
 }
 
@@ -188,13 +204,27 @@ impl EsiClient {
         }
         let url = format!("https://esi.evetech.net/latest{path}");
         let response = self.http.post(&url).json(body).send().await?;
-        self.budget.lock().unwrap_or_else(|e| e.into_inner()).update_from_headers(&response);
+        let remaining = {
+            let mut budget = self.budget.lock().unwrap_or_else(|e| e.into_inner());
+            budget.update_from_headers(&response);
+            budget.remaining
+        };
         match response.status() {
             StatusCode::OK => Ok(Self::decode(&url, response).await?),
-            StatusCode::TOO_MANY_REQUESTS => Err(EsiError::RateLimited),
-            StatusCode::SERVICE_UNAVAILABLE => Err(EsiError::ServiceUnavailable),
+            StatusCode::TOO_MANY_REQUESTS => {
+                eprintln!("[esi] 420 rate-limited on {url} (error budget remaining: {remaining})");
+                Err(EsiError::RateLimited)
+            }
+            StatusCode::SERVICE_UNAVAILABLE => {
+                eprintln!("[esi] 503 on {url} (error budget remaining: {remaining})");
+                Err(EsiError::ServiceUnavailable)
+            }
             status => {
                 let body_text = response.text().await.unwrap_or_default();
+                eprintln!(
+                    "[esi] {status} on {url} (error budget remaining: {remaining}): {}",
+                    body_text.chars().take(300).collect::<String>()
+                );
                 Err(EsiError::HttpError { status: status.as_u16(), body: body_text })
             }
         }
@@ -230,14 +260,28 @@ impl EsiClient {
         let response = req.send().await?;
 
         // Update error budget from headers before checking status.
-        self.budget.lock().unwrap_or_else(|e| e.into_inner()).update_from_headers(&response);
+        let remaining = {
+            let mut budget = self.budget.lock().unwrap_or_else(|e| e.into_inner());
+            budget.update_from_headers(&response);
+            budget.remaining
+        };
 
         match response.status() {
             StatusCode::OK => Ok(response),
-            StatusCode::TOO_MANY_REQUESTS => Err(EsiError::RateLimited),
-            StatusCode::SERVICE_UNAVAILABLE => Err(EsiError::ServiceUnavailable),
+            StatusCode::TOO_MANY_REQUESTS => {
+                eprintln!("[esi] 420 rate-limited on {url} (error budget remaining: {remaining})");
+                Err(EsiError::RateLimited)
+            }
+            StatusCode::SERVICE_UNAVAILABLE => {
+                eprintln!("[esi] 503 on {url} (error budget remaining: {remaining})");
+                Err(EsiError::ServiceUnavailable)
+            }
             status => {
                 let body = response.text().await.unwrap_or_default();
+                eprintln!(
+                    "[esi] {status} on {url} (error budget remaining: {remaining}): {}",
+                    body.chars().take(300).collect::<String>()
+                );
                 Err(EsiError::HttpError {
                     status: status.as_u16(),
                     body,

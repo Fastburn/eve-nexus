@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ESI OAuth2 PKCE flow, token refresh, and token storage.
 //!
 //! Flow: open browser → local callback server → exchange code → store tokens.
@@ -68,6 +71,10 @@ pub enum AuthError {
     ParseToken(String),
     #[error("No refresh token stored for character {0}")]
     NoRefreshToken(CharacterId),
+    #[error("EVE SSO token endpoint returned {status}: {body}")]
+    TokenEndpoint { status: u16, body: String },
+    #[error("{0}'s session has expired, please sign in again")]
+    NeedsReauth(String),
 }
 
 impl From<keyring::Error> for AuthError {
@@ -96,6 +103,12 @@ pub struct AuthManager {
     local: Arc<LocalDb>,
     /// Ensures only one auth flow runs at a time (port 21468 can only be held by one listener).
     auth_lock: tokio::sync::Mutex<()>,
+    /// Per-character locks serializing token refresh. EVE SSO rotates the
+    /// refresh token on every use, so concurrent refreshes for the same
+    /// character (e.g. several ESI calls firing at once via `refresh_all`)
+    /// would race: only the first succeeds and the rest get a 400 from a
+    /// refresh token already invalidated by that first call.
+    refresh_locks: std::sync::Mutex<std::collections::HashMap<CharacterId, Arc<tokio::sync::Mutex<()>>>>,
 }
 
 impl AuthManager {
@@ -103,6 +116,7 @@ impl AuthManager {
         Self {
             local,
             auth_lock: tokio::sync::Mutex::new(()),
+            refresh_locks: std::sync::Mutex::new(std::collections::HashMap::new()),
             http: reqwest::Client::builder()
                 .user_agent(concat!(
                     "EveNexus/",
@@ -140,7 +154,14 @@ impl AuthManager {
         // Fixed port so the redirect URI is predictable and can be registered
         // in the EVE developer portal as http://localhost:21468
         const CALLBACK_PORT: u16 = 21468;
-        let listener = TcpListener::bind(("0.0.0.0", CALLBACK_PORT)).await?;
+        // In debug builds (WSL2 dev), bind to all interfaces so the Windows
+        // browser can reach the WSL2 listener. In release builds the browser
+        // is always on the same machine, so loopback is sufficient and safer.
+        #[cfg(debug_assertions)]
+        let bind_addr = "0.0.0.0";
+        #[cfg(not(debug_assertions))]
+        let bind_addr = "127.0.0.1";
+        let listener = TcpListener::bind((bind_addr, CALLBACK_PORT)).await?;
         let redirect_uri = format!("http://localhost:{CALLBACK_PORT}");
 
         // ── Open browser ──────────────────────────────────────────────────────
@@ -195,6 +216,32 @@ impl AuthManager {
             }
         }
 
+        // Serialize refreshes per character. See `refresh_locks` doc comment.
+        let lock = {
+            let mut locks = self.refresh_locks.lock().unwrap_or_else(|e| e.into_inner());
+            locks.entry(cid).or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))).clone()
+        };
+        let _guard = lock.lock().await;
+
+        // Re-check: another task may have refreshed while we waited for the lock.
+        let local3 = self.local.clone();
+        let (access2, expiry2) = tokio::task::spawn_blocking(move || {
+            let access = token_load(&local3, &keyring_key_access(cid)).ok();
+            let expiry = token_load(&local3, &keyring_key_expiry(cid))
+                .ok()
+                .flatten()
+                .and_then(|s| s.parse::<DateTime<Utc>>().ok());
+            (access.flatten(), expiry)
+        })
+        .await
+        .unwrap_or((None, None));
+
+        if let (Some(token), Some(exp)) = (access2, expiry2) {
+            if exp > Utc::now() {
+                return Ok(token);
+            }
+        }
+
         let local2 = self.local.clone();
         let refresh = tokio::task::spawn_blocking(move || {
             token_load(&local2, &keyring_key_refresh(cid))
@@ -205,7 +252,23 @@ impl AuthManager {
         .await
         .map_err(|_| AuthError::NoRefreshToken(cid))??;
 
-        let tokens = self.refresh_tokens(&refresh).await?;
+        let tokens = match self.refresh_tokens(&refresh).await {
+            Ok(t) => t,
+            Err(AuthError::TokenEndpoint { status: 400, body }) if body.contains("invalid_grant") => {
+                // Refresh token is permanently dead (revoked, or orphaned by a
+                // past rotation race). Clear it so future calls fail fast
+                // with a clear re-auth prompt instead of retrying forever.
+                let _ = self.remove_tokens(character_id);
+                let who = self
+                    .local
+                    .get_characters()
+                    .ok()
+                    .and_then(|chars| chars.into_iter().find(|(id, _)| *id == character_id).map(|(_, name)| name))
+                    .unwrap_or_else(|| format!("Character {character_id}"));
+                return Err(AuthError::NeedsReauth(who));
+            }
+            Err(e) => return Err(e),
+        };
         let expires_at =
             Utc::now() + chrono::Duration::seconds(tokens.expires_in as i64 - 30);
 
@@ -256,7 +319,8 @@ impl AuthManager {
         code_verifier: &str,
         redirect_uri: &str,
     ) -> Result<TokenResponse, AuthError> {
-        self.http
+        let response = self
+            .http
             .post(TOKEN_URL)
             .form(&[
                 ("grant_type", "authorization_code"),
@@ -266,15 +330,13 @@ impl AuthManager {
                 ("redirect_uri", redirect_uri),
             ])
             .send()
-            .await?
-            .error_for_status()?
-            .json::<TokenResponse>()
-            .await
-            .map_err(Into::into)
+            .await?;
+        Self::parse_token_response(response, "exchange_code").await
     }
 
     async fn refresh_tokens(&self, refresh_token: &str) -> Result<TokenResponse, AuthError> {
-        self.http
+        let response = self
+            .http
             .post(TOKEN_URL)
             .form(&[
                 ("grant_type", "refresh_token"),
@@ -282,11 +344,25 @@ impl AuthManager {
                 ("client_id", CLIENT_ID),
             ])
             .send()
-            .await?
-            .error_for_status()?
-            .json::<TokenResponse>()
-            .await
-            .map_err(Into::into)
+            .await?;
+        Self::parse_token_response(response, "refresh_tokens").await
+    }
+
+    async fn parse_token_response(
+        response: reqwest::Response,
+        context: &str,
+    ) -> Result<TokenResponse, AuthError> {
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            eprintln!("[auth] {context}: SSO token endpoint returned {status}: {body}");
+            return Err(AuthError::TokenEndpoint { status: status.as_u16(), body });
+        }
+        let body = response.text().await.map_err(AuthError::Http)?;
+        serde_json::from_str::<TokenResponse>(&body).map_err(|e| {
+            eprintln!("[auth] {context}: failed to parse token response: {e}\nBody: {body}");
+            AuthError::ParseToken(e.to_string())
+        })
     }
 }
 

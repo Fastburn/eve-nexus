@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Read-only queries against the CCP SDE SQLite database.
 //!
 //! `SdeDb` wraps the connection and is registered as Tauri managed state.
@@ -383,11 +386,11 @@ impl SdeDb {
                     CAST(t.volume AS REAL), t.published
              FROM invTypes t
              JOIN invGroups g ON g.groupID = t.groupID
-             WHERE t.typeName LIKE ?1 AND (t.published = '1' OR t.published = 'true')
+             WHERE t.typeName LIKE ?1 ESCAPE '\\' AND (t.published = '1' OR t.published = 'true')
              ORDER BY length(t.typeName), t.typeName
              LIMIT ?2",
         )?;
-        let pattern = format!("%{query}%");
+        let pattern = format!("%{}%", crate::db::escape_like(query));
         let rows =
             stmt.query_map(rusqlite::params![pattern, limit as i64], row_to_type_info)?;
         rows.collect::<Result<_, _>>().map_err(Into::into)
@@ -480,7 +483,7 @@ impl SdeDb {
                         } else {
                             w
                         };
-                        format!("%{stem}%")
+                        format!("%{}%", crate::db::escape_like(stem))
                     })
                     .collect()
             })
@@ -490,7 +493,7 @@ impl SdeDb {
         let word_clauses: String = (0..word_patterns.len())
             .map(|i| {
                 let p = 3 + i; // ?3, ?4, …
-                format!("AND (pt.typeName LIKE ?{p} OR bt.typeName LIKE ?{p})")
+                format!("AND (pt.typeName LIKE ?{p} ESCAPE '\\' OR bt.typeName LIKE ?{p} ESCAPE '\\')")
             })
             .collect::<Vec<_>>()
             .join("\n             ");

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Character auth, ESI refresh, skill/slot/job monitoring commands.
 
 use std::collections::HashMap;
@@ -195,6 +198,10 @@ pub async fn refresh_all_esi_data(
                     skills.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
                     jobs.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
                     blueprints.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+                } else {
+                    // Corp-only mode: clear stale personal assets so corp merge
+                    // doesn't accumulate on top of data from a previous sync.
+                    let _ = db.replace_assets(char_id, &std::collections::HashMap::new());
                 }
 
                 if include_corp {
@@ -280,6 +287,8 @@ pub async fn refresh_esi_data(
         skills.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
         jobs.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
         blueprints.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+    } else {
+        let _ = db.replace_assets(character_id, &std::collections::HashMap::new());
     }
 
     if include_corp {

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useState } from "react";
 import { useCharactersStore } from "../../store";
 import { setCorpAssetsMode } from "../../api/characters";
@@ -128,7 +131,7 @@ export function CharactersPanel() {
                   <span className="cp-char-name">{c.characterName}</span>
                   <span className="cp-char-id">#{c.characterId}</span>
                   {c.hasCorpAccess && (
-                    <div className="cp-corp-mode" title="Choose which assets to include in your plans. Requires Director role for corp access.">
+                    <div className="cp-corp-mode" title="Choose which assets to include in your plans. Requires Director role.">
                       {(["personal", "both", "corp"] as const).map((m) => (
                         <button
                           key={m}
