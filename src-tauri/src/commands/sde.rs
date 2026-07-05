@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! SDE-backed commands: type search, SDE status, blueprint browser.
 
 use std::collections::HashMap;
@@ -307,6 +310,7 @@ pub(super) fn type_info_to_summary(info: SdeTypeInfo) -> TypeSummary {
         type_id: info.type_id,
         type_name: info.type_name,
         category_id: info.category_id,
+        group_id: info.group_id,
         volume: info.volume,
     }
 }

@@ -1,5 +1,9 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useState, useEffect } from "react";
 import { usePlanStore, useSolverStore, useSettingsStore, useUiStore } from "../../store";
+import { buildSolveRequest } from "../../lib/solveRequest";
 import "./Toolbar.css";
 
 const fmtMultiplier = (v: number) => v === 1 ? "×1" : `×${v % 1 === 0 ? v : v.toFixed(2)}`;
@@ -43,39 +47,7 @@ export function Toolbar() {
 
   function handleSolve() {
     if (targets.length === 0 || solving) return;
-
-    // Build the request from current in-memory state — works whether the plan
-    // is saved or not, and always reflects the latest targets + settings.
-    const meLevels: Record<number, number> = {};
-    const teLevels: Record<number, number> = {};
-    for (const o of blueprintOverrides) {
-      meLevels[o.typeId] = o.meLevel;
-      teLevels[o.typeId] = o.teLevel;
-    }
-
-    const profileMap: Record<string, (typeof structureProfiles)[number]> = {};
-    for (const p of structureProfiles) {
-      profileMap[p.id] = p;
-    }
-
-    const decisionMap: Record<number, (typeof manualDecisions)[number]["decision"]> = {};
-    for (const d of manualDecisions) {
-      decisionMap[d.typeId] = d.decision;
-    }
-
-    // Apply overproduction multiplier — scale all target quantities.
-    const scaledTargets = effectiveMultiplier === 1
-      ? targets
-      : targets.map((t) => ({ ...t, quantity: Math.ceil(t.quantity * effectiveMultiplier) }));
-
-    solve({
-      targets: scaledTargets,
-      meLevels,
-      teLevels,
-      structureProfiles: profileMap,
-      manualDecisions: decisionMap,
-      blacklist,
-    });
+    solve(buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, effectiveMultiplier));
   }
 
   function handleMultClick() {
@@ -206,6 +178,13 @@ export function Toolbar() {
           title="Market analyser — compare hub prices, spot arbitrage, and check build vs buy"
         >
           Market
+        </button>
+        <button
+          className={`toolbar-view-btn${mainView === "schedule" ? " active" : ""}`}
+          onClick={() => setMainView("schedule")}
+          title="Schedule — slot load balancing and time estimates for manufacturing and invention"
+        >
+          Schedule
         </button>
       </div>
 

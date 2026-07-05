@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * TypeScript mirror of the Rust domain types from src-tauri/src/types/mod.rs.
  * All field names are camelCase to match the serde rename_all = "camelCase"
@@ -115,6 +118,8 @@ export interface BuildNode {
   quantityToHangar: number;
   quantityToBuy: number;
   unitVolume: number;
+  categoryId: number;
+  groupId: number;
   jobCost: number | null;
   inputs: BuildNode[];
 }
@@ -134,6 +139,54 @@ export interface SolvePlanRequest {
   structureProfiles?: Record<string, StructureProfile>;
   manualDecisions?: Record<TypeId, Decision>;
   blacklist?: TypeId[];
+}
+
+// ── Schedule ──────────────────────────────────────────────────────────────────
+
+export interface ManufacturingJob {
+  typeId: TypeId;
+  typeName: string;
+  runs: number;
+  /** Effective time per run in seconds after TE, skill, and rig reductions. */
+  timePerRunSeconds: number;
+}
+
+export interface InventionJob {
+  typeId: TypeId;
+  typeName: string;
+  attempts: number;
+  probability: number;
+  /** Statistical expected BPCs = attempts × probability. */
+  expectedBpcs: number;
+  timePerAttemptSeconds: number;
+}
+
+export interface PlanSchedule {
+  manufacturing: ManufacturingJob[];
+  invention: InventionJob[];
+  industrySlots: number;
+  scienceSlots: number;
+  /** Slot counts derived from the best character's skills. */
+  derivedIndustrySlots: number;
+  derivedScienceSlots: number;
+  manufacturingWallClockSeconds: number;
+  inventionWallClockSeconds: number;
+  /** Critical path: max(invention, manufacturing) since they run concurrently. */
+  criticalPathSeconds: number;
+}
+
+// ── Market history ────────────────────────────────────────────────────────────
+
+export interface MarketHistoryEntry {
+  regionId: number;
+  typeId: TypeId;
+  /** ISO date string: "YYYY-MM-DD" */
+  date: string;
+  average: number;
+  highest: number | null;
+  lowest: number | null;
+  volume: number;
+  orderCount: number;
 }
 
 // ── Production plans ──────────────────────────────────────────────────────────
@@ -245,6 +298,8 @@ export interface MarketRegion {
   /** EVE region ID for region hubs; structure ID for structure hubs. */
   regionId: number;
   isDefault: boolean;
+  /** Marks this hub as the player's local market — no freight applies when buying here. */
+  isLocal: boolean;
   /** Set when this hub sources prices from a player-owned structure. */
   structureId?: number;
 }

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Recursive build node solver.
 
 use std::collections::HashMap;
@@ -33,6 +36,7 @@ pub fn solve_node(
             type_id,
             type_name: format!("Unknown [{type_id}]"),
             category_id: 0,
+            group_id: 0,
             volume: 0.0,
         });
 
@@ -102,6 +106,8 @@ pub fn buy_node(
         quantity_to_hangar: 0,
         quantity_to_buy: to_buy,
         unit_volume: summary.volume,
+        category_id: summary.category_id,
+        group_id: summary.group_id,
         job_cost: None,
         inputs: vec![],
     }
@@ -117,7 +123,10 @@ fn build_industry_node(
     structure_profile_id: Option<&str>,
     state: &mut SolverState,
 ) -> BuildNode {
-    let bp = state.input.blueprints[&type_id].clone();
+    // Borrow from `state.input` (lifetime `'a`, independent of `&mut state`
+    // below) instead of cloning the blueprint on every recursive call.
+    let input = state.input;
+    let bp = &input.blueprints[&type_id];
     let category_id = summary.category_id;
 
     // ── ME / rig bonus ────────────────────────────────────────────────────────
@@ -170,17 +179,16 @@ fn build_industry_node(
 
     // ── Recurse into materials ────────────────────────────────────────────────
     state.seen.insert(type_id);
-    let inputs = build_inputs(&bp, runs, me_level, rig_me, depth, structure_profile_id, state);
+    let inputs = build_inputs(bp, runs, me_level, rig_me, depth, structure_profile_id, state);
     state.seen.remove(&type_id);
 
     // ── Invention node (T2 items) ─────────────────────────────────────────────
     let mut all_inputs = inputs;
     if let Some(inv_bp) = &bp.invention {
-        let inv_bp = inv_bp.clone();
         // How many BPCs we need: each covers inv_bp.output_runs manufacturing runs.
         let bpcs_needed = runs_needed(runs as u64, inv_bp.output_runs as u64);
         let invention_node =
-            invention::solve_invention_node(&inv_bp, bpcs_needed, summary, depth + 1, state);
+            invention::solve_invention_node(inv_bp, bpcs_needed, summary, depth + 1, state);
         all_inputs.push(invention_node);
     }
 
@@ -231,6 +239,8 @@ fn build_industry_node(
         quantity_to_hangar,
         quantity_to_buy: 0,
         unit_volume: summary.volume,
+        category_id: summary.category_id,
+        group_id: summary.group_id,
         job_cost,
         inputs: all_inputs,
     }

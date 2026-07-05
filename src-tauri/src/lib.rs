@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 pub mod analytics;
 pub mod auth;
 pub mod commands;
@@ -95,6 +98,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Solver
             commands::solve_build_plan,
+            commands::compute_schedule,
             // SDE
             commands::search_types,
             commands::get_sde_status,
@@ -150,10 +154,10 @@ pub fn run() {
             commands::save_market_region,
             commands::delete_market_region,
             commands::fetch_market_prices,
+            commands::fetch_price_history,
             // Structure search
             commands::search_market_structures,
             commands::get_asset_structures,
-            commands::debug_asset_locations,
             // System cost index
             commands::search_solar_systems,
             commands::get_system_cost_info,

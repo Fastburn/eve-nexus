@@ -1,4 +1,7 @@
-import { useState, useMemo } from "react";
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { useState, useMemo, useCallback } from "react";
 import { useSolverStore, useUiStore, useMarketStore, usePlanStore } from "../../store";
 import { TypeIcon } from "../common";
 import { computeNodeCosts } from "../../lib/buildCost";
@@ -58,6 +61,25 @@ interface EnrichedNode extends BuildNode {
   bvbCosts: NodeCosts | null;
 }
 
+// ── Category filter chips ─────────────────────────────────────────────────────
+
+interface ChipDef {
+  id: string;
+  label: string;
+  match: (n: BuildNode) => boolean;
+}
+
+const CHIP_DEFS: ChipDef[] = [
+  { id: "minerals",   label: "Minerals",   match: (n) => n.groupId === 18 },
+  { id: "pi",         label: "PI",         match: (n) => n.categoryId === 43 },
+  { id: "reactions",  label: "Reactions",  match: (n) => n.kind.type === "reaction" },
+  { id: "ships",      label: "Ships",      match: (n) => n.categoryId === 6 },
+  { id: "modules",    label: "Modules",    match: (n) => n.categoryId === 7 },
+  { id: "drones",     label: "Drones",     match: (n) => n.categoryId === 18 },
+  { id: "charges",    label: "Charges",    match: (n) => n.categoryId === 8 },
+  { id: "components", label: "Components", match: (n) => n.categoryId === 4 && n.groupId !== 18 },
+];
+
 // ── Column definitions ────────────────────────────────────────────────────────
 
 type SortKey =
@@ -73,6 +95,8 @@ type SortKey =
   | "sellPrice"
   | "avg30d"
   | "buyVol"
+  | "bestSrc"
+  | "trend"
   | "bvb";
 
 interface Col {
@@ -95,6 +119,8 @@ const COLS: Col[] = [
   { key: "sellPrice", label: "Est. Sell",  align: "right", tip: "Best sell order price across your configured market hubs. Sell your output here for maximum revenue." },
   { key: "avg30d",    label: "30d Avg",    align: "right", tip: "EVE's 30-day adjusted average price. Useful baseline for comparison — if Est. Sell is far above this, prices may be elevated." },
   { key: "buyVol",    label: "Buy m³",     align: "right", tip: "Packaged volume of items to purchase (Qty to Buy × unit volume). Use this to plan freight capacity." },
+  { key: "bestSrc",   label: "Best Source", align: "left",  tip: "Cheapest place to buy this item after applying your freight rate. Requires one hub flagged Local in Settings → Market Hubs, plus at least one other hub with a price for this item." },
+  { key: "trend",     label: "5d Trend",    align: "right", tip: "Price trend over the last 5 days based on market history. Shows % change in daily average price." },
   { key: "bvb",       label: "Buy vs Build", align: "right", tip: "For items you are building: compares market buy cost vs full build-path cost (materials + job fees). Positive savings = keep building; negative = buying is cheaper." },
 ];
 
@@ -164,6 +190,8 @@ function getValue(node: EnrichedNode, key: SortKey): string | number {
     case "sellPrice": return node.bestSellPrice ?? 0;
     case "avg30d":    return node.adjusted30d ?? 0;
     case "buyVol":    return node.quantityToBuy > 0 ? node.quantityToBuy * node.unitVolume : 0;
+    case "bestSrc":   return node.typeName;
+    case "trend":     return 0; // computed per-render, not sortable
     case "bvb":       return node.bvbCosts?.delta ?? 0;
   }
 }
@@ -192,9 +220,10 @@ export function GridView() {
   const solving    = useSolverStore((s) => s.solving);
   const selectNode = useUiStore((s) => s.selectNode);
 
-  // Subscribe to prices so component re-renders when prices are updated.
+  // Subscribe to prices and history so component re-renders when updated.
   const marketPrices   = useMarketStore((s) => s.prices);
   const marketRegions  = useMarketStore((s) => s.regions);
+  const marketHistory  = useMarketStore((s) => s.history);
   const pricesFetching = useMarketStore((s) => s.fetching);
 
   const planName          = usePlanStore((s) => s.activePlan?.name ?? "build-plan");
@@ -203,20 +232,70 @@ export function GridView() {
   const [sortKey, setSortKey]       = useState<SortKey>("kind");
   const [sortAsc, setSortAsc]       = useState(true);
   const [filter, setFilter]         = useState("");
+  const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
   const [copyLabel, setCopyLabel]   = useState<"buy" | "done-buy" | null>(null);
 
   const flat = useMemo(() => flattenNodes(nodes), [nodes]);
 
-  // Best sell price across all configured regions for a given typeId.
-  const getBestSell = useMemo(() => (typeId: number): number | null => {
-    let best: number | null = null;
+  // Best sell price across all configured regions, keyed by typeId. Built once per price update.
+  const bestSellMap = useMemo(() => {
+    const map = new Map<number, number>();
     for (const entry of Object.values(marketPrices)) {
-      if (entry.typeId === typeId && entry.bestSell !== null) {
-        best = best === null ? entry.bestSell : Math.max(best, entry.bestSell);
+      if (entry.bestSell !== null) {
+        const cur = map.get(entry.typeId);
+        if (cur === undefined || entry.bestSell > cur) map.set(entry.typeId, entry.bestSell);
       }
     }
-    return best;
+    return map;
   }, [marketPrices]);
+
+  const getBestSell = useCallback(
+    (typeId: number): number | null => bestSellMap.get(typeId) ?? null,
+    [bestSellMap],
+  );
+
+  // Best source for buying: compares landed cost (sell + freight for non-local hubs).
+  // Returns null when comparison isn't possible (no local hub flagged, or <2 hubs with prices).
+  const getBestSource = useMemo(() => (
+    typeId: number,
+    unitVolume: number,
+  ): { label: string; landedCost: number; isLocal: boolean; savings: number } | null => {
+    if (!marketRegions.some((r) => r.isLocal)) return null;
+
+    const options: { label: string; landedCost: number; isLocal: boolean }[] = [];
+    for (const region of marketRegions) {
+      const entry = marketPrices[`${region.regionId}:${typeId}`];
+      if (!entry?.bestSell) continue;
+      const freight = region.isLocal ? 0 : unitVolume * freightIskPerM3;
+      options.push({ label: region.label, landedCost: entry.bestSell + freight, isLocal: region.isLocal });
+    }
+    if (options.length < 2) return null;
+
+    options.sort((a, b) => a.landedCost - b.landedCost);
+    return { ...options[0], savings: options[1].landedCost - options[0].landedCost };
+  }, [marketPrices, marketRegions, freightIskPerM3]);
+
+  // 5-day price trend: % change from the oldest available entry (up to 5 days ago)
+  // to the most recent, across all regions (prefer highest volume).
+  const getTrend = useMemo(() => (typeId: number): { pct: number; days: number } | null => {
+    let best: { pct: number; days: number; vol: number } | null = null;
+    for (const region of marketRegions) {
+      const key = `${region.regionId}:${typeId}`;
+      const entries = marketHistory[key];
+      if (!entries || entries.length < 2) continue;
+      // entries are newest-first; take up to 5 days
+      const window = entries.slice(0, 5);
+      const latest = window[0];
+      const oldest = window[window.length - 1];
+      if (oldest.average === 0) continue;
+      const pct = ((latest.average - oldest.average) / oldest.average) * 100;
+      const vol = window.reduce((s, e) => s + e.volume, 0);
+      if (!best || vol > best.vol) {
+        best = { pct, days: window.length, vol };
+      }
+    }
+    return best ? { pct: best.pct, days: best.days } : null;
+  }, [marketHistory, marketRegions]);
 
   // 30d adjusted average keyed by typeId — built once per price update.
   const adjusted30dMap = useMemo(() => {
@@ -304,11 +383,19 @@ export function GridView() {
     return { revenue, matCost, jobCost, profit, margin, buyVolume };
   }, [nodes, flat, getBestSell]);
 
+  // Only show chips that have at least one matching item in the current plan.
+  const availableChips = useMemo(
+    () => CHIP_DEFS.filter((chip) => enriched.some(chip.match)),
+    [enriched],
+  );
+
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return enriched;
-    return enriched.filter((n) => n.typeName.toLowerCase().includes(q));
-  }, [enriched, filter]);
+    const nameOk = (n: EnrichedNode) => !q || n.typeName.toLowerCase().includes(q);
+    const typeOk = (n: EnrichedNode) =>
+      typeFilters.size === 0 || CHIP_DEFS.some((c) => typeFilters.has(c.id) && c.match(n));
+    return enriched.filter((n) => nameOk(n) && typeOk(n));
+  }, [enriched, filter, typeFilters]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -356,6 +443,14 @@ export function GridView() {
       setCopyLabel("done-buy");
       setTimeout(() => setCopyLabel(null), 1500);
     }).catch(() => {});
+  }
+
+  function handleToggleChip(id: string) {
+    setTypeFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
   function handleSort(key: SortKey) {
@@ -444,6 +539,20 @@ export function GridView() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
+        {availableChips.length > 0 && (
+          <div className="gv-chips">
+            {availableChips.map((chip) => (
+              <button
+                key={chip.id}
+                className={`gv-chip${typeFilters.has(chip.id) ? " gv-chip-active" : ""}`}
+                onClick={() => handleToggleChip(chip.id)}
+                title={`Filter to ${chip.label} only`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
         <span className="gv-count">{sorted.length} item{sorted.length !== 1 ? "s" : ""}</span>
         <button
           className="gv-export-btn"
@@ -514,6 +623,38 @@ export function GridView() {
                   title={buyVolTip(node.quantityToBuy, node.unitVolume, freightIskPerM3)}
                 >
                   {node.quantityToBuy > 0 ? fmtVol(node.quantityToBuy * node.unitVolume) : "—"}
+                </td>
+                <td className="gv-td">
+                  {(() => {
+                    if (node.quantityToBuy === 0) return <span className="gv-muted">—</span>;
+                    const src = getBestSource(node.typeId, node.unitVolume);
+                    if (!src) return <span className="gv-muted">—</span>;
+                    return (
+                      <span
+                        className={src.isLocal ? "gv-src-local" : "gv-src-import"}
+                        title={`Landed cost: ${fmtIsk(src.landedCost)}/unit — saves ${fmtIsk(src.savings)} vs next option${!src.isLocal ? ` (includes ${fmtIsk(node.unitVolume * freightIskPerM3)}/unit freight)` : ""}`}
+                      >
+                        {src.label}
+                        {src.savings > 0 && <span className="gv-src-saving"> −{fmtIsk(src.savings)}</span>}
+                      </span>
+                    );
+                  })()}
+                </td>
+                <td className="gv-td gv-td-right">
+                  {(() => {
+                    const t = getTrend(node.typeId);
+                    if (!t) return <span className="gv-muted">—</span>;
+                    const up = t.pct >= 0;
+                    const abs = Math.abs(t.pct).toFixed(1);
+                    return (
+                      <span
+                        className={up ? "gv-trend-up" : "gv-trend-down"}
+                        title={`${up ? "+" : ""}${t.pct.toFixed(2)}% over ${t.days} days`}
+                      >
+                        {up ? "↑" : "↓"} {abs}%
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="gv-td gv-td-right">
                   {node.bvbCosts !== null ? (

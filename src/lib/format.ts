@@ -1,3 +1,17 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+/** Format a duration in seconds as a compact human-readable string (e.g. "3d 18h", "4h 32m"). */
+export function fmtDuration(seconds: number): string {
+  if (seconds <= 0) return "0s";
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return h > 0 ? `${d}d ${h}h` : `${d}d`;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
+}
+
 /** Format an ISK value into a compact human-readable string (e.g. "1.23 B", "456.78 M"). */
 export function fmtIsk(n: number | null | undefined): string {
   if (n == null || n === 0) return "—";

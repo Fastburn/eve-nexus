@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Market regions, price fetching, solar system cost info, restock planner,
 //! and watched system commands.
 
@@ -30,6 +33,7 @@ pub struct SaveMarketRegionRequest {
     pub label:        String,
     pub region_id:    i64,
     pub is_default:   bool,
+    pub is_local:     bool,
     /// Set when this hub fetches prices from a player-owned structure.
     pub structure_id: Option<i64>,
 }
@@ -44,6 +48,7 @@ pub fn save_market_region(
         label:        region.label,
         region_id:    region.region_id,
         is_default:   region.is_default,
+        is_local:     region.is_local,
         structure_id: region.structure_id,
     })?;
     Ok(())
@@ -113,12 +118,19 @@ pub async fn fetch_market_prices(
             }
             // Try each character in order — the first with docking access wins.
             let mut structure_prices = vec![];
-            for (char_id, _) in &characters {
-                if let Ok(p) = endpoints::fetch_structure_market_prices(
+            for (char_id, char_name) in &characters {
+                match endpoints::fetch_structure_market_prices(
                     &esi.0, &local.0, structure_id, *char_id, &type_ids, 300,
                 ).await {
-                    structure_prices = p;
-                    break;
+                    Ok(p) => {
+                        structure_prices = p;
+                        break;
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "[market] {char_name} ({char_id}) denied at structure {structure_id}: {e}"
+                        );
+                    }
                 }
             }
             if structure_prices.is_empty() {
@@ -349,58 +361,6 @@ pub async fn get_asset_structures(
     Ok(results)
 }
 
-/// Diagnostic: bust asset cache and return a summary of raw location types/IDs.
-/// Used to debug why asset structure detection finds nothing.
-#[tauri::command]
-pub async fn debug_asset_locations(
-    local: State<'_, LocalState>,
-    esi: State<'_, EsiState>,
-) -> Result<Vec<String>, CommandError> {
-    #[derive(serde::Deserialize)]
-    #[allow(dead_code)]
-    struct RawItem { item_id: i64, location_id: i64, location_type: String }
-
-    let db = &local.0;
-    let client = &esi.0;
-    let characters = db.get_characters().map_err(CommandError::from)?;
-    let mut lines: Vec<String> = vec![];
-
-    for (char_id, name) in &characters {
-        let _ = db.delete_cache_expiry(&format!("char:{char_id}:assets"));
-        let path = format!("/characters/{char_id}/assets/");
-        let raw: Vec<RawItem> = match client.get_auth_all_pages(&path, *char_id).await {
-            Ok((r, _)) => r,
-            Err(e) => { lines.push(format!("{name}: ESI error: {e}")); continue; }
-        };
-        lines.push(format!("{name}: {} raw items", raw.len()));
-
-        let mut by_type: HashMap<String, usize> = HashMap::new();
-        for item in &raw { *by_type.entry(item.location_type.clone()).or_insert(0) += 1; }
-        let mut sorted: Vec<_> = by_type.iter().collect();
-        sorted.sort_by_key(|(k, _)| k.as_str());
-        for (lt, cnt) in sorted { lines.push(format!("  location_type={lt}: {cnt}")); }
-
-        let mut player: HashMap<i64, String> = HashMap::new();
-        let mut npc = 0usize;
-        for item in &raw {
-            if item.location_id > 1_000_000_000 {
-                player.entry(item.location_id).or_insert_with(|| item.location_type.clone());
-            } else if item.location_type == "station" {
-                npc += 1;
-            }
-        }
-        lines.push(format!("  NPC station items: {npc}"));
-        if player.is_empty() {
-            lines.push("  No player structure location_ids found (no location_id > 1B in any item)".into());
-        } else {
-            for (sid, lt) in &player {
-                lines.push(format!("  Player structure location_id={sid} (location_type={lt})"));
-            }
-        }
-    }
-    Ok(lines)
-}
-
 // ─── Restock planner ──────────────────────────────────────────────────────────
 
 /// One row in the restock view — target + current market position.
@@ -565,4 +525,38 @@ pub fn remove_watched_system(
     local: State<'_, LocalState>,
 ) -> Result<(), CommandError> {
     local.0.remove_watched_system(system_id).map_err(Into::into)
+}
+
+// ─── Market history ───────────────────────────────────────────────────────────
+
+/// Fetch (or return cached) price history for `type_ids` across all configured
+/// market regions. Cache TTL is 24 hours since history only updates once daily.
+///
+/// Returns up to 35 days of history per type per region.
+#[tauri::command]
+pub async fn fetch_price_history(
+    type_ids: Vec<crate::types::TypeId>,
+    esi: State<'_, EsiState>,
+    local: State<'_, LocalState>,
+) -> Result<Vec<crate::db::local::MarketHistoryRow>, CommandError> {
+    if type_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    let regions = local.0.get_market_regions()?;
+    let client = &esi.0;
+    let db = &local.0;
+    let mut all: Vec<crate::db::local::MarketHistoryRow> = Vec::new();
+
+    for region in &regions {
+        // ESI has no history endpoint for player structures, only real regions.
+        if region.structure_id.is_some() {
+            continue;
+        }
+        let rows = endpoints::fetch_market_history(client, db, region.region_id, &type_ids)
+            .await
+            .unwrap_or_default();
+        all.extend(rows);
+    }
+
+    Ok(all)
 }

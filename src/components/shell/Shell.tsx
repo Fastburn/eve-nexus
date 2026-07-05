@@ -1,4 +1,8 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect } from "react";
+import { buildSolveRequest } from "../../lib/solveRequest";
 import { usePlanStore, useSolverStore, useSettingsStore, useUiStore } from "../../store";
 import { Sidebar } from "./Sidebar";
 import { Toolbar } from "./Toolbar";
@@ -11,6 +15,7 @@ import { SdeBanner, ConsentDialog, UpdateBanner, AboutDialog, SettingsModal, Cha
 import { FirstRunWizard } from "../overlays/FirstRunWizard";
 import { AdvisorPanel } from "../advisor/AdvisorPanel";
 import { MarketView } from "../../views/MarketView";
+import { ScheduleView } from "../../views/ScheduleView";
 import "./Shell.css";
 
 export function Shell() {
@@ -39,6 +44,7 @@ export function Shell() {
   const structureProfiles  = useSettingsStore((s) => s.structureProfiles);
   const manualDecisions    = useSettingsStore((s) => s.manualDecisions);
   const blacklist          = useSettingsStore((s) => s.blacklist);
+  const effectiveMultiplier = usePlanStore((s) => s.effectiveMultiplier);
 
   // ── Global keyboard shortcuts ─────────────────────────────────────────────
   useEffect(() => {
@@ -58,17 +64,7 @@ export function Shell() {
       if (ctrl && e.key === "Enter") {
         e.preventDefault();
         if (targets.length === 0 || solving) return;
-        const meLevels: Record<number, number> = {};
-        const teLevels: Record<number, number> = {};
-        for (const o of blueprintOverrides) {
-          meLevels[o.typeId] = o.meLevel;
-          teLevels[o.typeId] = o.teLevel;
-        }
-        const profileMap: Record<string, (typeof structureProfiles)[number]> = {};
-        for (const p of structureProfiles) profileMap[p.id] = p;
-        const decisionMap: Record<number, (typeof manualDecisions)[number]["decision"]> = {};
-        for (const d of manualDecisions) decisionMap[d.typeId] = d.decision;
-        solve({ targets, meLevels, teLevels, structureProfiles: profileMap, manualDecisions: decisionMap, blacklist });
+        solve(buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, effectiveMultiplier));
         return;
       }
 
@@ -84,7 +80,7 @@ export function Shell() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     activePlan, targets, saveCurrent, isDirty, solving, solve,
-    blueprintOverrides, structureProfiles, manualDecisions, blacklist,
+    blueprintOverrides, structureProfiles, manualDecisions, blacklist, effectiveMultiplier,
     showAbout, setShowAbout, showConsent, rightPanelOpen, closeRightPanel,
   ]);
 
@@ -121,11 +117,12 @@ export function Shell() {
             <button className="shell-error-dismiss" onClick={dismissError}>×</button>
           </div>
         )}
-        {mainView === "graph"   && <GraphView />}
-        {mainView === "grid"    && <GridView />}
-        {mainView === "browser" && <BlueprintBrowser />}
-        {mainView === "advisor" && <AdvisorPanel />}
-        {mainView === "market"  && <MarketView />}
+        {mainView === "graph"    && <GraphView />}
+        {mainView === "grid"     && <GridView />}
+        {mainView === "browser"  && <BlueprintBrowser />}
+        {mainView === "advisor"  && <AdvisorPanel />}
+        {mainView === "market"   && <MarketView />}
+        {mainView === "schedule" && <ScheduleView />}
       </main>
 
       {rightPanelOpen && (mainView === "graph" || mainView === "grid") && (

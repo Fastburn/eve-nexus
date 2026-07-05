@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect, useRef, useState } from "react";
 import { getTypeNames } from "../../api";
 import { usePlanStore, useSettingsStore, useUiStore } from "../../store";
@@ -24,6 +27,22 @@ export function Sidebar() {
 
   const profiles     = useSettingsStore((s) => s.structureProfiles);
 
+  // When there is exactly one profile, back-fill any targets that have none.
+  // Depends on both profiles and targets so opening a saved plan (which reloads
+  // targets from DB) also triggers the fill, not just the initial profile load.
+  // Auto-saves afterwards so the assignment persists across restarts.
+  useEffect(() => {
+    if (profiles.length !== 1) return;
+    const pid = profiles[0].id;
+    const unassigned = targets.filter((t) => !t.structureProfileId);
+    if (unassigned.length === 0) return;
+    unassigned.forEach((t) => updateTarget(t.typeId, { structureProfileId: pid }));
+    const state = usePlanStore.getState();
+    if (state.activePlan) {
+      state.saveCurrent(state.activePlan.name).catch(() => {});
+    }
+  }, [profiles, targets]);
+
   const setMainView             = useUiStore((s) => s.setMainView);
   const setShowAbout            = useUiStore((s) => s.setShowAbout);
   const setShowSettings         = useUiStore((s) => s.setShowSettings);
@@ -31,11 +50,11 @@ export function Sidebar() {
   const sidebarCollapsed        = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebarCollapsed  = useUiStore((s) => s.toggleSidebarCollapsed);
 
-  const [typeNames, setTypeNames]     = useState<Record<number, string>>({});
-  const [renamingId, setRenamingId]   = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [typeNames, setTypeNames]       = useState<Record<number, string>>({});
+  const [renamingId, setRenamingId]     = useState<string | null>(null);
+  const [renameValue, setRenameValue]   = useState("");
   const [showEftImport, setShowEftImport] = useState(false);
-  const renameInputRef                = useRef<HTMLInputElement>(null);
+  const renameInputRef                  = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const ids = targets.map((t) => t.typeId);

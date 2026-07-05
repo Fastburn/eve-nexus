@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Eve Nexus contributors */
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
 /* ── Settings Panel ───────────────────────────────────────────────────────── */
 .sp {
   display: flex;
@@ -377,6 +380,16 @@
   line-height: 1.5;
 }
 
+.sp-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+
 .sp-hint a {
   color: var(--accent);
   text-decoration: underline;
@@ -554,4 +567,3 @@
   border-color: var(--accent);
   color: #fff;
 }
-

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
@@ -78,6 +81,9 @@ pub struct InventionInfo {
     pub datacores: Vec<MaterialLine>,
     /// Optional decrypter used.
     pub decrypter: Option<DecrypterInfo>,
+    /// Base time per invention attempt in seconds (from SDE `industryActivities`).
+    /// No skill or rig modifiers apply to invention job time in EVE.
+    pub time_per_attempt_seconds: u32,
 }
 
 /// A decrypter item and its per-stat modifiers.
@@ -213,6 +219,11 @@ pub struct BuildNode {
     /// m³ per unit (from SDE `invTypes.volume`). Used for freight cost calculations.
     pub unit_volume: f64,
 
+    /// `invGroups.categoryID` — used for material-type filtering in the UI.
+    pub category_id: i32,
+    /// `invTypes.groupID` — used for fine-grained filtering (e.g. Minerals = group 18).
+    pub group_id: i32,
+
     /// `EIV × system_cost_index × (1 + facility_tax)`.
     /// `None` for Buy and VirtualHangar nodes.
     pub job_cost: Option<f64>,
@@ -233,6 +244,7 @@ pub struct TypeSummary {
     pub type_id: TypeId,
     pub type_name: String,
     pub category_id: i32,
+    pub group_id: i32,
     pub volume: f64,
 }
 
@@ -275,6 +287,8 @@ pub struct InventionBlueprint {
     /// `[encryption_skill_id, datacore_skill_1_id, datacore_skill_2_id]`
     /// Used to compute the final probability from character skills.
     pub relevant_skill_ids: Vec<TypeId>,
+    /// Base job duration per attempt in seconds (from SDE `industryActivities`, activity 8).
+    pub time_seconds: u32,
 }
 
 // ─── Solver input snapshot ───────────────────────────────────────────────────
@@ -359,4 +373,56 @@ pub struct SolverInput {
 
     /// `skill_type_id → level` from ESI character skills.
     pub character_skills: HashMap<TypeId, u8>,
+}
+
+// ─── Schedule output ──────────────────────────────────────────────────────────
+
+/// One group of manufacturing runs for a single product type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManufacturingJob {
+    pub type_id: TypeId,
+    pub type_name: String,
+    /// Total runs required across the plan.
+    pub runs: u32,
+    /// Effective time per run in seconds after blueprint TE, Industry/Advanced Industry
+    /// skill reductions, and structure rig TE bonus.
+    pub time_per_run_seconds: u32,
+}
+
+/// One group of invention attempts for a single T2 product type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InventionJob {
+    pub type_id: TypeId,
+    pub type_name: String,
+    pub attempts: u32,
+    pub probability: f64,
+    /// Statistical expected BPCs = attempts × probability (may be fractional).
+    pub expected_bpcs: f64,
+    /// Base time per attempt in seconds (no skill or rig modifiers in EVE).
+    pub time_per_attempt_seconds: u32,
+}
+
+/// Complete scheduling output for a production plan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSchedule {
+    pub manufacturing: Vec<ManufacturingJob>,
+    pub invention: Vec<InventionJob>,
+    /// Slot counts used to compute this schedule.
+    pub industry_slots: u32,
+    pub science_slots: u32,
+    /// Slot counts derived from the best character's skills (used as defaults in the UI).
+    pub derived_industry_slots: u32,
+    pub derived_science_slots: u32,
+    /// Wall-clock seconds to complete all manufacturing jobs.
+    /// Computed as ceil(total_slot_seconds / industry_slots), where
+    /// total_slot_seconds = Σ(runs × time_per_run) across all job types.
+    pub manufacturing_wall_clock_seconds: u64,
+    /// Wall-clock seconds to complete all invention attempts.
+    pub invention_wall_clock_seconds: u64,
+    /// Critical path in seconds. Invention and manufacturing can run concurrently
+    /// so this is max(invention_wall_clock, manufacturing_wall_clock), not their sum.
+    pub critical_path_seconds: u64,
 }

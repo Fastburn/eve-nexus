@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Typed ESI endpoint functions.
 //!
 //! Each function checks the local DB cache before hitting the wire.
@@ -670,16 +673,18 @@ pub async fn fetch_market_prices(
         .get_stale_market_types(region_id, type_ids, max_age_secs)
         .map_err(esi_local_err)?;
 
-    // Fetch stale type_ids from ESI, 8 at a time to avoid hammering the API.
+    // Fetch stale type_ids from ESI, 8 at a time in parallel to avoid hammering the API.
     for chunk in stale.chunks(8) {
-        let mut handles = Vec::new();
-        for &type_id in chunk {
+        let futures = chunk.iter().map(|&type_id| {
             let path = format!(
                 "/markets/{region_id}/orders/?datasource=tranquility&order_type=all&type_id={type_id}"
             );
-            handles.push((type_id, client.get_public::<Vec<EsiMarketOrder>>(&path).await));
-        }
-        for (type_id, result) in handles {
+            async move {
+                (type_id, client.get_public::<Vec<EsiMarketOrder>>(&path).await)
+            }
+        });
+        let results = futures_util::future::join_all(futures).await;
+        for (type_id, result) in results {
             let (orders, _) = match result {
                 Ok(v) => v,
                 Err(e) => {
@@ -875,6 +880,69 @@ pub async fn fetch_structure_market_prices(
 
 /// Update the cache expiry in the local DB, using the ESI `Expires` header
 /// if present, otherwise falling back to `fallback_secs` from now.
+// ─── Market history ───────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+struct EsiHistoryDay {
+    date:        String,
+    average:     f64,
+    highest:     Option<f64>,
+    lowest:      Option<f64>,
+    volume:      i64,
+    order_count: i64,
+}
+
+fn cache_market_history(region_id: i64, type_id: TypeId) -> String {
+    format!("market_history:{region_id}:{type_id}")
+}
+
+/// Fetch daily market history for `type_ids` in `region_id`.
+///
+/// Results are cached per type per region for 24 hours (history updates once daily).
+/// Returns all available cached history after fetching any stale entries.
+pub async fn fetch_market_history(
+    client: &EsiClient,
+    local: &LocalDb,
+    region_id: i64,
+    type_ids: &[TypeId],
+) -> EsiResult<Vec<crate::db::local::MarketHistoryRow>> {
+    // Fetch types whose cache has expired.
+    for &type_id in type_ids {
+        let key = cache_market_history(region_id, type_id);
+        if local.get_cache_expiry(&key).map_err(esi_local_err)?.is_some() {
+            continue; // still fresh
+        }
+        let path = format!(
+            "/markets/{region_id}/history/?datasource=tranquility&type_id={type_id}"
+        );
+        let result = client.get_public::<Vec<EsiHistoryDay>>(&path).await;
+        let (days, expiry) = match result {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("[market_history] fetch failed for type {type_id} region {region_id}: {e}");
+                continue;
+            }
+        };
+        let rows: Vec<crate::db::local::MarketHistoryRow> = days
+            .into_iter()
+            .map(|d| crate::db::local::MarketHistoryRow {
+                region_id,
+                type_id,
+                date:        d.date,
+                average:     d.average,
+                highest:     d.highest,
+                lowest:      d.lowest,
+                volume:      d.volume,
+                order_count: d.order_count,
+            })
+            .collect();
+        let _ = local.upsert_market_history(region_id, type_id, &rows);
+        update_expiry(local, &key, expiry, 86400);
+    }
+
+    local.get_market_history(region_id, type_ids, 35).map_err(esi_local_err)
+}
+
 fn update_expiry(local: &LocalDb, key: &str, esi_expiry: Option<DateTime<Utc>>, fallback_secs: i64) {
     let expiry = esi_expiry
         .unwrap_or_else(|| Utc::now() + chrono::Duration::seconds(fallback_secs));

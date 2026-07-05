@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { create } from "zustand";
 import { solveBuildPlan } from "../api";
 import type { BuildNode, SolvePlanRequest } from "../api";
@@ -61,10 +64,12 @@ export const useSolverStore = create<SolverState>((set) => ({
       const nodes = await solveBuildPlan(request);
       const warnings = detectWarnings(nodes);
       set({ nodes, solving: false, warnings });
-      // Fire-and-forget: fetch market prices for every item in the plan.
+      // Fire-and-forget: fetch market prices and history for every item in the plan.
       const typeIds = collectTypeIds(nodes);
       if (typeIds.length > 0) {
-        useMarketStore.getState().fetchPrices(typeIds).catch(() => {/* non-fatal */});
+        const market = useMarketStore.getState();
+        market.fetchPrices(typeIds).catch(() => {/* non-fatal */});
+        market.fetchHistory(typeIds).catch(() => {/* non-fatal */});
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message

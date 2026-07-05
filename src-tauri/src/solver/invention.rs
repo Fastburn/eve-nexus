@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Invention node building and probability calculations.
 
 use std::collections::HashMap;
@@ -80,6 +83,7 @@ pub fn solve_invention_node(
                 type_id: dc_type_id,
                 type_name: format!("Datacore [{dc_type_id}]"),
                 category_id: 0,
+                group_id: 0,
                 volume: 0.0,
             });
         // Datacores are always bought (never built)
@@ -94,6 +98,7 @@ pub fn solve_invention_node(
             type_id: inv_bp.t1_blueprint_type_id,
             type_name: format!("T1 BPC [{0}]", inv_bp.t1_blueprint_type_id),
             category_id: 0,
+            group_id: 0,
             volume: 0.0,
         });
     let owns_t1_bpo = state.input.assets.get(&inv_bp.t1_blueprint_type_id).copied().unwrap_or(0) > 0;
@@ -141,6 +146,7 @@ pub fn solve_invention_node(
         output_te: inv_bp.output_te,
         datacores: datacore_lines,
         decrypter: None,
+        time_per_attempt_seconds: inv_bp.time_seconds,
     };
 
     let on_hand = consume_stock(&mut state.available_assets, inv_bp.t1_blueprint_type_id, 0);
@@ -160,7 +166,9 @@ pub fn solve_invention_node(
         quantity_to_hangar: 0,
         quantity_to_buy: 0,
         unit_volume: product_type_summary.volume,
-        job_cost: None, // invention job cost calculated separately if needed
+        category_id: product_type_summary.category_id,
+        group_id: product_type_summary.group_id,
+        job_cost: None,
         inputs,
     }
 }

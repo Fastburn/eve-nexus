@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Local app state persisted in SQLite.
 //!
 //! Covers: virtual hangar stock, user settings, production plans,
@@ -124,6 +127,8 @@ pub struct MarketRegion {
     /// For structure hubs: the structure ID (used as the market_prices cache key).
     pub region_id: i64,
     pub is_default: bool,
+    /// Marks this hub as the player's local market — no freight cost applies when buying here.
+    pub is_local: bool,
     /// Set when this hub sources prices from a player-owned structure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub structure_id: Option<i64>,
@@ -225,6 +230,10 @@ impl LocalDb {
         // SQLite doesn't support IF NOT EXISTS on ALTER TABLE, so we ignore the error.
         let _ = self.conn()?.execute(
             "ALTER TABLE market_regions ADD COLUMN structure_id INTEGER",
+            [],
+        );
+        let _ = self.conn()?.execute(
+            "ALTER TABLE market_regions ADD COLUMN is_local INTEGER NOT NULL DEFAULT 0",
             [],
         );
         let _ = self.conn()?.execute(
@@ -363,6 +372,20 @@ impl LocalDb {
                 fetched_at TEXT    NOT NULL,
                 PRIMARY KEY (region_id, type_id)
             );
+
+            CREATE TABLE IF NOT EXISTS market_history (
+                region_id   INTEGER NOT NULL,
+                type_id     INTEGER NOT NULL,
+                date        TEXT    NOT NULL,
+                average     REAL    NOT NULL,
+                highest     REAL,
+                lowest      REAL,
+                volume      INTEGER NOT NULL DEFAULT 0,
+                order_count INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (region_id, type_id, date)
+            );
+            CREATE INDEX IF NOT EXISTS idx_mh_lookup
+                ON market_history (region_id, type_id, date DESC);
 
             -- Structure name cache: populated lazily as the user searches.
             -- market_structure_ids tracks which structures have a public market.
@@ -1248,7 +1271,7 @@ impl LocalDb {
     pub fn get_market_regions(&self) -> LocalResult<Vec<MarketRegion>> {
         let conn = self.conn()?;
         let mut stmt = conn.prepare(
-            "SELECT id, label, region_id, is_default, structure_id
+            "SELECT id, label, region_id, is_default, structure_id, is_local
              FROM market_regions ORDER BY is_default DESC, label ASC",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -1258,6 +1281,7 @@ impl LocalDb {
                 region_id:    row.get(2)?,
                 is_default:   row.get::<_, i32>(3)? != 0,
                 structure_id: row.get(4)?,
+                is_local:     row.get::<_, i32>(5).unwrap_or(0) != 0,
             })
         })?;
         rows.collect::<Result<_, _>>().map_err(Into::into)
@@ -1265,14 +1289,15 @@ impl LocalDb {
 
     pub fn save_market_region(&self, region: &MarketRegion) -> LocalResult<()> {
         self.conn()?.execute(
-            "INSERT OR REPLACE INTO market_regions (id, label, region_id, is_default, structure_id)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT OR REPLACE INTO market_regions (id, label, region_id, is_default, structure_id, is_local)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             rusqlite::params![
                 region.id,
                 region.label,
                 region.region_id,
                 region.is_default as i32,
                 region.structure_id,
+                region.is_local as i32,
             ],
         )?;
         Ok(())
@@ -1391,6 +1416,105 @@ impl LocalDb {
     }
 }
 
+// ─── Market history ───────────────────────────────────────────────────────────
+
+/// One day of market history for a type in a region.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketHistoryRow {
+    pub region_id:   i64,
+    pub type_id:     TypeId,
+    /// ISO date string: "YYYY-MM-DD"
+    pub date:        String,
+    pub average:     f64,
+    pub highest:     Option<f64>,
+    pub lowest:      Option<f64>,
+    pub volume:      i64,
+    pub order_count: i64,
+}
+
+impl LocalDb {
+    /// Insert or replace history rows for one type in one region.
+    /// Prunes rows older than 35 days after writing.
+    pub fn upsert_market_history(
+        &self,
+        region_id: i64,
+        type_id: TypeId,
+        rows: &[MarketHistoryRow],
+    ) -> LocalResult<()> {
+        let conn = self.conn()?;
+        let tx = conn.unchecked_transaction()?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT OR REPLACE INTO market_history
+                     (region_id, type_id, date, average, highest, lowest, volume, order_count)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            )?;
+            for row in rows {
+                stmt.execute(rusqlite::params![
+                    row.region_id, row.type_id, row.date,
+                    row.average, row.highest, row.lowest,
+                    row.volume, row.order_count,
+                ])?;
+            }
+            // Prune rows older than 35 days.
+            tx.execute(
+                "DELETE FROM market_history
+                 WHERE region_id = ?1 AND type_id = ?2
+                   AND date < date('now', '-35 days')",
+                rusqlite::params![region_id, type_id],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Return the last `days` days of history for the given types in a region.
+    pub fn get_market_history(
+        &self,
+        region_id: i64,
+        type_ids: &[TypeId],
+        days: u32,
+    ) -> LocalResult<Vec<MarketHistoryRow>> {
+        if type_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let conn = self.conn()?;
+        // days is interpolated directly into SQL; type_id params start at ?2
+        let placeholders = type_ids.iter().enumerate()
+            .map(|(i, _)| format!("?{}", i + 2))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT region_id, type_id, date, average, highest, lowest, volume, order_count
+             FROM market_history
+             WHERE region_id = ?1
+               AND date >= date('now', '-{days} days')
+               AND type_id IN ({placeholders})
+             ORDER BY type_id, date DESC"
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(region_id)];
+        for &tid in type_ids {
+            params.push(Box::new(tid));
+        }
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+        let rows = stmt.query_map(param_refs.as_slice(), |r| {
+            Ok(MarketHistoryRow {
+                region_id:   r.get(0)?,
+                type_id:     r.get(1)?,
+                date:        r.get(2)?,
+                average:     r.get(3)?,
+                highest:     r.get(4)?,
+                lowest:      r.get(5)?,
+                volume:      r.get(6)?,
+                order_count: r.get(7)?,
+            })
+        })?;
+        rows.collect::<Result<_, _>>().map_err(Into::into)
+    }
+}
+
 // ─── System name cache ────────────────────────────────────────────────────────
 
 impl LocalDb {
@@ -1432,12 +1556,16 @@ impl LocalDb {
         names: &[(crate::types::SolarSystemId, &str)],
     ) -> LocalResult<()> {
         let conn = self.conn()?;
-        let mut stmt = conn.prepare_cached(
-            "INSERT OR REPLACE INTO system_names (system_id, system_name) VALUES (?1, ?2)",
-        )?;
-        for (id, name) in names {
-            stmt.execute(rusqlite::params![id, name])?;
+        let tx = conn.unchecked_transaction()?;
+        {
+            let mut stmt = tx.prepare_cached(
+                "INSERT OR REPLACE INTO system_names (system_id, system_name) VALUES (?1, ?2)",
+            )?;
+            for (id, name) in names {
+                stmt.execute(rusqlite::params![id, name])?;
+            }
         }
+        tx.commit()?;
         Ok(())
     }
 }
@@ -1448,13 +1576,17 @@ impl LocalDb {
     /// Store the full list of public market structure IDs (replaces any prior list).
     pub fn replace_market_structure_ids(&self, ids: &[i64]) -> LocalResult<()> {
         let conn = self.conn()?;
-        conn.execute("DELETE FROM market_structure_ids", [])?;
-        let mut stmt = conn.prepare_cached(
-            "INSERT OR IGNORE INTO market_structure_ids (structure_id) VALUES (?1)",
-        )?;
-        for &id in ids {
-            stmt.execute([id])?;
+        let tx = conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM market_structure_ids", [])?;
+        {
+            let mut stmt = tx.prepare_cached(
+                "INSERT OR IGNORE INTO market_structure_ids (structure_id) VALUES (?1)",
+            )?;
+            for &id in ids {
+                stmt.execute([id])?;
+            }
         }
+        tx.commit()?;
         Ok(())
     }
 
@@ -1476,12 +1608,16 @@ impl LocalDb {
     /// Upsert structure names into the local cache.
     pub fn upsert_structure_names(&self, names: &[(i64, &str)]) -> LocalResult<()> {
         let conn = self.conn()?;
-        let mut stmt = conn.prepare_cached(
-            "INSERT OR REPLACE INTO structure_names (structure_id, structure_name) VALUES (?1, ?2)",
-        )?;
-        for (id, name) in names {
-            stmt.execute(rusqlite::params![id, name])?;
+        let tx = conn.unchecked_transaction()?;
+        {
+            let mut stmt = tx.prepare_cached(
+                "INSERT OR REPLACE INTO structure_names (structure_id, structure_name) VALUES (?1, ?2)",
+            )?;
+            for (id, name) in names {
+                stmt.execute(rusqlite::params![id, name])?;
+            }
         }
+        tx.commit()?;
         Ok(())
     }
 
@@ -1516,7 +1652,8 @@ impl LocalDb {
         limit: usize,
     ) -> LocalResult<Vec<(i64, String)>> {
         let conn = self.conn()?;
-        let pattern = format!("%{query}%");
+        let escaped = crate::db::escape_like(query);
+        let pattern = format!("%{escaped}%");
         let mut stmt = conn.prepare_cached(
             "SELECT structure_id, structure_name FROM structure_names
              WHERE structure_name LIKE ?1 ESCAPE '\\'
@@ -1538,7 +1675,8 @@ impl LocalDb {
         limit: usize,
     ) -> LocalResult<Vec<(i64, String)>> {
         let conn = self.conn()?;
-        let pattern = format!("%{query}%");
+        let escaped = crate::db::escape_like(query);
+        let pattern = format!("%{escaped}%");
         let mut stmt = conn.prepare_cached(
             "SELECT sn.structure_id, sn.structure_name
              FROM structure_names sn
@@ -1562,16 +1700,20 @@ impl LocalDb {
         ids: &[i64],
     ) -> LocalResult<()> {
         let conn = self.conn()?;
-        conn.execute(
+        let tx = conn.unchecked_transaction()?;
+        tx.execute(
             "DELETE FROM asset_structure_locations WHERE character_id = ?1",
             [character_id],
         )?;
-        let mut stmt = conn.prepare_cached(
-            "INSERT OR IGNORE INTO asset_structure_locations (character_id, structure_id) VALUES (?1, ?2)",
-        )?;
-        for &id in ids {
-            stmt.execute(rusqlite::params![character_id, id])?;
+        {
+            let mut stmt = tx.prepare_cached(
+                "INSERT OR IGNORE INTO asset_structure_locations (character_id, structure_id) VALUES (?1, ?2)",
+            )?;
+            for &id in ids {
+                stmt.execute(rusqlite::params![character_id, id])?;
+            }
         }
+        tx.commit()?;
         Ok(())
     }
 
@@ -1583,12 +1725,16 @@ impl LocalDb {
         ids: &[i64],
     ) -> LocalResult<()> {
         let conn = self.conn()?;
-        let mut stmt = conn.prepare_cached(
-            "INSERT OR IGNORE INTO asset_structure_locations (character_id, structure_id) VALUES (?1, ?2)",
-        )?;
-        for &id in ids {
-            stmt.execute(rusqlite::params![character_id, id])?;
+        let tx = conn.unchecked_transaction()?;
+        {
+            let mut stmt = tx.prepare_cached(
+                "INSERT OR IGNORE INTO asset_structure_locations (character_id, structure_id) VALUES (?1, ?2)",
+            )?;
+            for &id in ids {
+                stmt.execute(rusqlite::params![character_id, id])?;
+            }
         }
+        tx.commit()?;
         Ok(())
     }
 

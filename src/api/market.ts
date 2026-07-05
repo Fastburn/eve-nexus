@@ -1,5 +1,8 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { invoke } from "@tauri-apps/api/core";
-import type { MarketRegion, MarketPriceEntry, StructureSearchResult, TypeId } from "./types";
+import type { MarketHistoryEntry, MarketRegion, MarketPriceEntry, StructureSearchResult, TypeId } from "./types";
 
 export function getMarketRegions(): Promise<MarketRegion[]> {
   return invoke("get_market_regions");
@@ -19,6 +22,14 @@ export function deleteMarketRegion(id: string): Promise<void> {
  */
 export function fetchMarketPrices(typeIds: TypeId[]): Promise<MarketPriceEntry[]> {
   return invoke("fetch_market_prices", { typeIds });
+}
+
+/**
+ * Fetch (or return cached) up to 35 days of market history for the given types
+ * across all configured regions. Cache TTL is 24 hours server-side.
+ */
+export function fetchPriceHistory(typeIds: TypeId[]): Promise<MarketHistoryEntry[]> {
+  return invoke("fetch_price_history", { typeIds });
 }
 
 /**

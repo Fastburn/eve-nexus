@@ -1,6 +1,9 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { create } from "zustand";
 
-export type MainView = "graph" | "grid" | "browser" | "advisor" | "market";
+export type MainView = "graph" | "grid" | "browser" | "advisor" | "market" | "schedule";
 export type RightPanelTab =
   | "nodeDetail"
   | "settings"

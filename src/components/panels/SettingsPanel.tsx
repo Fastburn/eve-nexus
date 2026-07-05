@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, useUiStore, useMarketStore } from "../../store";
@@ -560,6 +563,24 @@ function MarketHubEditor({
         </div>
       )}
 
+      <div className="sp-field">
+        <label className="sp-label">Local hub</label>
+        <label className="sp-checkbox-label">
+          <input
+            type="checkbox"
+            checked={hub.isLocal}
+            onChange={(e) => setHub((h) => ({ ...h, isLocal: e.target.checked }))}
+          />
+          No freight applies when buying here
+        </label>
+        <div className="sp-hint">
+          Flag the hub where you actually buy or sell, usually your home structure. This
+          is required for the Grid's Best Source column: it compares this hub's price
+          against your other configured hubs (adding freight to the non-local ones) and
+          shows the cheapest option. With no hub flagged Local, Best Source stays blank.
+        </div>
+      </div>
+
       <div className="sp-editor-actions">
         <button className="sp-btn-save" onClick={handleSave} disabled={!valid}>
           Save Hub
@@ -573,7 +594,7 @@ function MarketHubEditor({
 }
 
 function newHub(): MarketRegion {
-  return { id: crypto.randomUUID(), label: "", regionId: 0, isDefault: false };
+  return { id: crypto.randomUUID(), label: "", regionId: 0, isDefault: false, isLocal: false };
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
@@ -747,6 +768,7 @@ export function SettingsPanel() {
                     <span className="sp-profile-meta">
                       Region {hub.regionId}
                       {hub.isDefault && " · Default"}
+                      {hub.isLocal && " · Local"}
                     </span>
                   </div>
                   <div className="sp-row-actions">

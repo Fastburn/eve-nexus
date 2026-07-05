@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tauri IPC command handlers.
 //!
 //! Thin layer: validate input, assemble `SolverInput` from all data sources,
@@ -11,6 +14,7 @@ pub mod import;
 pub mod inventory;
 pub mod market;
 pub mod plans;
+pub mod schedule;
 pub mod sde;
 pub mod settings;
 pub mod solver;
@@ -21,10 +25,12 @@ pub use import::*;
 pub use inventory::*;
 pub use market::*;
 pub use plans::*;
+pub use schedule::*;
 pub use sde::*;
 pub use settings::*;
 pub use solver::*;
 pub use updater::*;
+
 
 use serde::Serialize;
 

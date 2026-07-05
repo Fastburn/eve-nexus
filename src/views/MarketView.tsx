@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMarketStore } from "../store/market";
 import { useSolverStore, usePlanStore } from "../store";
@@ -45,48 +48,61 @@ function AnalysisCard({ item, isTracked, onTrack, onUntrack, onDismiss }: Analys
 
   const regions          = useMarketStore((s) => s.regions);
   const getPricesForType = useMarketStore((s) => s.getPricesForType);
-  useMarketStore((s) => s.prices); // subscribe for re-renders
+  const prices           = useMarketStore((s) => s.prices); // subscribe + dep for memo below
 
   const solverNodes = useSolverStore((s) => s.nodes);
 
-  const hubPrices = getPricesForType(item.typeId);
+  const {
+    hubPrices, bestSellEntry, cheapestEntry, bestBuyEntry,
+    arbBuyPrice, arbSellPrice, arbProfit, arbPct, arbDiffHubs,
+    planNode, buildPerUnit, cheapestMarket,
+  } = useMemo(() => {
+    const hubPrices = getPricesForType(item.typeId);
 
-  const bestSellEntry = hubPrices.reduce<MarketPriceEntry | null>(
-    (best, p) => (p.bestSell !== null && (best === null || p.bestSell > (best.bestSell ?? 0)) ? p : best),
-    null,
-  );
-  const cheapestEntry = hubPrices.reduce<MarketPriceEntry | null>(
-    (best, p) => (p.bestSell !== null && (best === null || p.bestSell < (best.bestSell ?? Infinity)) ? p : best),
-    null,
-  );
-  const bestBuyEntry = hubPrices.reduce<MarketPriceEntry | null>(
-    (best, p) => (p.bestBuy !== null && (best === null || p.bestBuy > (best.bestBuy ?? 0)) ? p : best),
-    null,
-  );
+    const bestSellEntry = hubPrices.reduce<MarketPriceEntry | null>(
+      (best, p) => (p.bestSell !== null && (best === null || p.bestSell > (best.bestSell ?? 0)) ? p : best),
+      null,
+    );
+    const cheapestEntry = hubPrices.reduce<MarketPriceEntry | null>(
+      (best, p) => (p.bestSell !== null && (best === null || p.bestSell < (best.bestSell ?? Infinity)) ? p : best),
+      null,
+    );
+    const bestBuyEntry = hubPrices.reduce<MarketPriceEntry | null>(
+      (best, p) => (p.bestBuy !== null && (best === null || p.bestBuy > (best.bestBuy ?? 0)) ? p : best),
+      null,
+    );
 
-  const arbBuyPrice  = cheapestEntry?.bestSell ?? null;
-  const arbSellPrice = bestBuyEntry?.bestBuy ?? null;
-  const arbProfit    = arbBuyPrice && arbSellPrice ? arbSellPrice - arbBuyPrice : null;
-  const arbPct       = arbBuyPrice && arbProfit !== null && arbBuyPrice > 0
-    ? (arbProfit / arbBuyPrice) * 100 : null;
-  const arbDiffHubs  = cheapestEntry?.regionId !== bestBuyEntry?.regionId;
+    const arbBuyPrice  = cheapestEntry?.bestSell ?? null;
+    const arbSellPrice = bestBuyEntry?.bestBuy ?? null;
+    const arbProfit    = arbBuyPrice && arbSellPrice ? arbSellPrice - arbBuyPrice : null;
+    const arbPct       = arbBuyPrice && arbProfit !== null && arbBuyPrice > 0
+      ? (arbProfit / arbBuyPrice) * 100 : null;
+    const arbDiffHubs  = cheapestEntry?.regionId !== bestBuyEntry?.regionId;
+
+    function getBestSellGlobal(typeId: number): number | null {
+      return getPricesForType(typeId).reduce<number | null>(
+        (best, e) => e.bestSell !== null ? (best === null ? e.bestSell : Math.max(best, e.bestSell)) : best,
+        null,
+      );
+    }
+
+    const planNode    = findNode(solverNodes, item.typeId);
+    const canBuild    = planNode?.kind.type === "manufacturing" || planNode?.kind.type === "reaction";
+    const nodeCosts   = canBuild && planNode ? computeNodeCosts(planNode, getBestSellGlobal) : null;
+    const buildPerUnit = nodeCosts && planNode && planNode.quantityNeeded > 0
+      ? nodeCosts.buildCost / planNode.quantityNeeded : null;
+    const cheapestMarket = cheapestEntry?.bestSell ?? null;
+
+    return {
+      hubPrices, bestSellEntry, cheapestEntry, bestBuyEntry,
+      arbBuyPrice, arbSellPrice, arbProfit, arbPct, arbDiffHubs,
+      planNode, buildPerUnit, cheapestMarket,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.typeId, solverNodes, getPricesForType, prices]);
 
   const regionLabel = (regionId: number) =>
     regions.find((r) => r.regionId === regionId)?.label ?? `Region ${regionId}`;
-
-  function getBestSellGlobal(typeId: number): number | null {
-    return getPricesForType(typeId).reduce<number | null>(
-      (best, e) => e.bestSell !== null ? (best === null ? e.bestSell : Math.max(best, e.bestSell)) : best,
-      null,
-    );
-  }
-
-  const planNode    = findNode(solverNodes, item.typeId);
-  const canBuild    = planNode?.kind.type === "manufacturing" || planNode?.kind.type === "reaction";
-  const nodeCosts   = canBuild && planNode ? computeNodeCosts(planNode, getBestSellGlobal) : null;
-  const buildPerUnit = nodeCosts && planNode && planNode.quantityNeeded > 0
-    ? nodeCosts.buildCost / planNode.quantityNeeded : null;
-  const cheapestMarket = cheapestEntry?.bestSell ?? null;
 
   return (
     <div className="mkt-analysis">
@@ -605,7 +621,16 @@ export function MarketView() {
                           onClick={(e) => { e.stopPropagation(); handleCopyColumn(r.regionId); }}
                           title={`Copy ${r.label} buy list`}
                         >
-                          {colCopied === r.regionId ? "✓" : "⎘"}
+                          {colCopied === r.regionId ? (
+                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6">
+                              <polyline points="3,8.5 6.5,12 13,4.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.3">
+                              <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
+                              <path d="M3.5 10.5v-7a1 1 0 0 1 1-1h7" />
+                            </svg>
+                          )}
                         </button>
                       </th>
                     ))}

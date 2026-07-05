@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Recursive BuildNode solver.
 //!
 //! Entry point: `solve(input)` — takes an immutable `SolverInput` snapshot and
@@ -9,12 +12,14 @@
 mod cost;
 mod invention;
 mod node;
+pub mod schedule;
 
 use std::collections::{HashMap, HashSet};
 
 use crate::types::{BuildNode, SolverInput, TypeId};
 
 pub use cost::{apply_me, get_rig_me, get_rig_te};
+pub use schedule::compute_schedule;
 
 // ─── Solver state ─────────────────────────────────────────────────────────────
 
@@ -99,7 +104,7 @@ mod tests {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     fn simple_summary(type_id: TypeId, name: &str) -> TypeSummary {
-        TypeSummary { type_id, type_name: name.to_string(), category_id: 7, volume: 1.0 }
+        TypeSummary { type_id, type_name: name.to_string(), category_id: 7, group_id: 0, volume: 1.0 }
     }
 
     fn simple_blueprint(type_id: TypeId, materials: Vec<(TypeId, u64)>) -> BlueprintData {
@@ -256,6 +261,7 @@ mod tests {
             output_runs: 10,
             output_me: 2,
             output_te: 4,
+            time_seconds: 1200,
             datacores: vec![],
             relevant_skill_ids: vec![],
         };
@@ -274,6 +280,7 @@ mod tests {
             output_runs: 10,
             output_me: 2,
             output_te: 4,
+            time_seconds: 1200,
             datacores: vec![],
             relevant_skill_ids: vec![10000], // enc skill id
         };

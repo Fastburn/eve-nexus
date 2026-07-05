@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Build plan solver command — assembles SolverInput and calls the solver.
 
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -38,11 +41,6 @@ pub struct SolvePlanRequest {
 }
 
 /// Solve a build plan. Returns one `BuildNode` tree per target.
-///
-/// Assembles a complete `SolverInput` snapshot:
-/// 1. BFS blueprint discovery via SDE
-/// 2. Persistent data from local DB (hangar, decisions, blacklist, overrides)
-/// 3. ESI data (assets, jobs, prices, cost indices) — read from local DB cache
 #[tauri::command]
 pub fn solve_build_plan(
     request: SolvePlanRequest,
@@ -51,20 +49,31 @@ pub fn solve_build_plan(
 ) -> Result<Vec<BuildNode>, CommandError> {
     let guard = sde_lock!(sde);
     let sde_db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
-
     if request.targets.is_empty() {
         return Ok(vec![]);
     }
+    let input = assemble_solver_input(request, sde_db, &local.0)?;
+    Ok(solver::solve(&input))
+}
 
+/// Assemble a complete `SolverInput` from all data sources.
+///
+/// Shared by `solve_build_plan` and `compute_schedule` so the blueprint BFS,
+/// DB reads, and ESI cache assembly are not duplicated.
+pub(super) fn assemble_solver_input(
+    request: SolvePlanRequest,
+    sde_db: &crate::db::sde::SdeDb,
+    local: &crate::db::local::LocalDb,
+) -> Result<SolverInput, CommandError> {
     // ── SDE: blueprint tree ──────────────────────────────────────────────────
     let (blueprints, type_summaries) = build_blueprint_map(&request.targets, sde_db)?;
 
     // ── Local DB ─────────────────────────────────────────────────────────────
-    let virtual_hangar = local.0.get_virtual_hangar()?;
-    let structure_profiles = local.0.get_structure_profiles()?;
-    let (me_levels_db, te_levels_db) = local.0.get_blueprint_overrides()?;
-    let manual_decisions_db = local.0.get_manual_decisions()?;
-    let blacklist_db = local.0.get_blacklist()?;
+    let virtual_hangar = local.get_virtual_hangar()?;
+    let structure_profiles = local.get_structure_profiles()?;
+    let (me_levels_db, te_levels_db) = local.get_blueprint_overrides()?;
+    let manual_decisions_db = local.get_manual_decisions()?;
+    let blacklist_db = local.get_blacklist()?;
 
     // Reverse map: blueprint item type ID → product type ID.
     let bp_item_to_product: HashMap<TypeId, TypeId> = blueprints
@@ -75,8 +84,8 @@ pub fn solve_build_plan(
     // Base ME/TE from ESI-fetched owned blueprints (lowest priority).
     let mut me_levels: HashMap<TypeId, u8> = HashMap::new();
     let mut te_levels: HashMap<TypeId, u8> = HashMap::new();
-    for (char_id, _) in &local.0.get_characters().unwrap_or_default() {
-        for bp in local.0.get_blueprints(*char_id).unwrap_or_default() {
+    for (char_id, _) in &local.get_characters().unwrap_or_default() {
+        for bp in local.get_blueprints(*char_id).unwrap_or_default() {
             if let Some(&product_id) = bp_item_to_product.get(&bp.blueprint_type_id) {
                 me_levels.entry(product_id)
                     .and_modify(|v| *v = (*v).max(bp.me_level))
@@ -104,18 +113,18 @@ pub fn solve_build_plan(
     profiles.extend(request.structure_profiles);
 
     // ── ESI cached data (best-effort — empty maps if never fetched) ─────────
-    let characters = local.0.get_characters().unwrap_or_default();
+    let characters = local.get_characters().unwrap_or_default();
 
     let mut assets: HashMap<TypeId, u64> = HashMap::new();
     for (char_id, _) in &characters {
-        for (type_id, qty) in local.0.get_assets(*char_id).unwrap_or_default() {
+        for (type_id, qty) in local.get_assets(*char_id).unwrap_or_default() {
             *assets.entry(type_id).or_insert(0) += qty;
         }
     }
 
     let mut active_jobs: Vec<crate::types::EsiJob> = Vec::new();
     for (char_id, _) in &characters {
-        for mut job in local.0.get_jobs(*char_id).unwrap_or_default() {
+        for mut job in local.get_jobs(*char_id).unwrap_or_default() {
             job.output_quantity = blueprints
                 .get(&job.output_type_id)
                 .map(|bp| bp.output_quantity * job.runs as u64)
@@ -124,19 +133,18 @@ pub fn solve_build_plan(
         }
     }
 
-    // Use the best skill level across all characters for each skill.
     let mut character_skills: HashMap<TypeId, u8> = HashMap::new();
     for (char_id, _) in &characters {
-        for (skill_id, level) in local.0.get_skills(*char_id).unwrap_or_default() {
+        for (skill_id, level) in local.get_skills(*char_id).unwrap_or_default() {
             let entry = character_skills.entry(skill_id).or_insert(0);
             *entry = (*entry).max(level);
         }
     }
 
-    let adjusted_prices = local.0.get_adjusted_prices().unwrap_or_default();
-    let cost_indices = local.0.get_cost_indices().unwrap_or_default();
+    let adjusted_prices = local.get_adjusted_prices().unwrap_or_default();
+    let cost_indices = local.get_cost_indices().unwrap_or_default();
 
-    let input = SolverInput {
+    Ok(SolverInput {
         targets: request.targets,
         assets,
         active_jobs,
@@ -151,9 +159,7 @@ pub fn solve_build_plan(
         me_levels,
         te_levels,
         character_skills,
-    };
-
-    Ok(solver::solve(&input))
+    })
 }
 
 // ─── Blueprint BFS ────────────────────────────────────────────────────────────
@@ -272,6 +278,7 @@ fn find_invention_data(
 
     let materials = sde.get_activity_materials(t1_bp_id, ActivityId::Invention)?;
     let skills = sde.get_activity_skills(t1_bp_id, ActivityId::Invention)?;
+    let time_seconds = sde.get_activity_time(t1_bp_id, ActivityId::Invention)?.unwrap_or(0);
 
     Ok(Some(InventionBlueprint {
         t1_blueprint_type_id: t1_bp_id,
@@ -281,6 +288,7 @@ fn find_invention_data(
         output_te: 4,
         datacores: materials.iter().map(|m| (m.material_type_id, m.quantity)).collect(),
         relevant_skill_ids: skills.iter().map(|s| s.skill_type_id).collect(),
+        time_seconds,
     }))
 }
 
@@ -289,6 +297,7 @@ fn type_info_to_summary(info: crate::db::sde::SdeTypeInfo) -> TypeSummary {
         type_id: info.type_id,
         type_name: info.type_name,
         category_id: info.category_id,
+        group_id: info.group_id,
         volume: info.volume,
     }
 }

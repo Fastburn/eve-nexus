@@ -1,0 +1,268 @@
+/* Copyright (C) 2026 Eve Nexus contributors */
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ── Schedule View ───────────────────────────────────────────────────────────── */
+
+.schedule-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-6);
+  gap: var(--sp-5);
+  background: var(--bg);
+}
+
+.schedule-empty,
+.schedule-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.schedule-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--sp-3);
+  height: 100%;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.schedule-error button {
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* ── Stale banner ────────────────────────────────────────────────────────────── */
+
+.schedule-stale {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.schedule-refresh-btn {
+  padding: 2px var(--sp-3);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--bg);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────────── */
+
+.schedule-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.schedule-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin: 0;
+}
+
+/* ── Slot rows ───────────────────────────────────────────────────────────────── */
+
+.schedule-slots-row {
+  display: flex;
+  gap: var(--sp-6);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.schedule-slot-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.schedule-reverse {
+  border-left: 1px solid var(--border);
+  padding-left: var(--sp-6);
+}
+
+.schedule-label {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.schedule-label-unit {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.schedule-slots-input {
+  width: 52px;
+  padding: 4px var(--sp-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text);
+  text-align: center;
+}
+
+.schedule-target-input {
+  width: 48px;
+  -moz-appearance: textfield;
+}
+
+.schedule-target-input::-webkit-outer-spin-button,
+.schedule-target-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.schedule-slots-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.schedule-arrow {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.schedule-result {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 60px;
+}
+
+.schedule-reset-btn {
+  padding: 2px var(--sp-2);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--text-3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.schedule-reset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.schedule-apply-btn {
+  padding: 2px var(--sp-3);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Jobs table ──────────────────────────────────────────────────────────────── */
+
+.schedule-jobs-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.schedule-col-num {
+  width: 110px;
+}
+
+.schedule-jobs-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-3);
+  font-size: 11px;
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-jobs-table td {
+  padding: var(--sp-1) var(--sp-2);
+  color: var(--text);
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-jobs-table tr:last-child td {
+  border-bottom: none;
+}
+
+.schedule-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.schedule-jobs-table th.schedule-num {
+  text-align: right;
+}
+
+/* ── Critical path ───────────────────────────────────────────────────────────── */
+
+.schedule-critical {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+.schedule-critical-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+.schedule-critical-time {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.schedule-bottleneck {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.schedule-overlap-note {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: auto;
+}

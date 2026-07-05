@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Eve Nexus contributors */
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
 /* ── Grid View ────────────────────────────────────────────────────────────── */
 .gv {
   display: flex;
@@ -137,6 +140,36 @@
   margin-left: auto;
 }
 
+/* ── Category filter chips ───────────────────────────────────────────────── */
+.gv-chips {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.gv-chip {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-3);
+  white-space: nowrap;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+
+.gv-chip:hover {
+  color: var(--text);
+  border-color: var(--text-3);
+}
+
+.gv-chip-active {
+  background: rgba(77,157,224,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .gv-export-btn {
   font-size: 11px;
   font-weight: 500;
@@ -263,6 +296,30 @@
 .gv-yellow     { color: var(--yellow) !important; }
 .gv-muted      { color: var(--text-3) !important; }
 .gv-sell-price { color: var(--accent); }
+
+/* ── Best Source badges ──────────────────────────────────────────────────── */
+.gv-src-local,
+.gv-src-import {
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Local hub — green: no freight cost */
+.gv-src-local { color: var(--green); }
+
+/* Import hub — accent: freight applies */
+.gv-src-import { color: var(--accent); }
+
+.gv-src-saving {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: 3px;
+}
+
+/* ── Trend ───────────────────────────────────────────────────────────────── */
+.gv-trend-up   { color: var(--green); font-size: 11px; font-weight: 600; }
+.gv-trend-down { color: var(--red, #e74c3c); font-size: 11px; font-weight: 600; }
 
 /* ── Buy vs Build badges ─────────────────────────────────────────────────── */
 .gv-bvb-build,
