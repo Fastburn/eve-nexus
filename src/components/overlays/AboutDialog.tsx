@@ -168,6 +168,39 @@ function ChangelogTab() {
   return (
     <div className="about-changelog">
       <div className="about-changelog-version">
+        <span className="about-changelog-tag">0.0.3-beta</span>
+        <span className="about-changelog-date">Unreleased</span>
+      </div>
+      <p className="about-changelog-summary">4 new features · 3 improvements · 8 bug fixes</p>
+
+      <div className="about-changelog-section">What's New</div>
+      <ul className="about-changelog-list">
+        <li>Grid category filter chips — narrow the grid to just the item categories present in your plan (Minerals, PI, Reactions, Ships, Modules, Drones, Charges, Components). Multiple chips can be active at once.</li>
+        <li>Schedule view — a new toolbar tab showing a manufacturing timeline for your build plan. Enter your available slots to see how long the build takes, or set a target number of days to see how many slots you need. Slot counts default from your character skills.</li>
+        <li>Best Source column — the grid shows where each buy item is cheapest after freight. Flag a market hub as "Local" in settings to compare landed cost across all your hubs.</li>
+        <li>5-day price trend column — a directional price trend for each item based on ESI market history, cached locally.</li>
+      </ul>
+
+      <div className="about-changelog-section">Improved</div>
+      <ul className="about-changelog-list">
+        <li>Grid performance — best-sell-price lookups are precomputed, and the market analysis card's cost calculation no longer recomputes on every keystroke.</li>
+        <li>Database write performance — bulk upserts for system names, structure names, and asset locations now run in transactions.</li>
+        <li>Copy icons in the market price table now render as inline icons instead of a Unicode glyph that showed as a blank box on some platforms.</li>
+      </ul>
+
+      <div className="about-changelog-section">Fixed</div>
+      <ul className="about-changelog-list">
+        <li>Profile auto-assignment now triggers correctly when loading a saved plan.</li>
+        <li>Corp-only asset mode no longer accumulates stale personal assets from a previous sync.</li>
+        <li>OAuth callback listener in release builds now binds to localhost only.</li>
+        <li>Search inputs with wildcards (% and _) are now escaped in LIKE queries.</li>
+        <li>Price history is no longer fetched for player structure hubs, which had been exhausting the ESI error budget on every refresh.</li>
+        <li>The ESI error budget tracker no longer locks up permanently once it hits zero.</li>
+        <li>Market price fetching now requests all configured hubs concurrently instead of one at a time.</li>
+        <li>Fixed a race condition where refreshing multiple characters at once could invalidate a character's refresh token. Session-expired messages now name the character instead of showing a raw ID.</li>
+      </ul>
+
+      <div className="about-changelog-version" style={{ marginTop: "var(--sp-4)" }}>
         <span className="about-changelog-tag">0.0.2</span>
         <span className="about-changelog-date">2026-05-14</span>
       </div>

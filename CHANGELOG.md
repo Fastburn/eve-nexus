@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.0.3] - Unreleased
+
+4 new features · 3 improvements · 8 bug fixes
+
+### Added
+
+Grid category filter chips. The build plan grid now shows filter chips in the toolbar for item categories present in the current plan. Click a chip to narrow the grid to just that category. Chips include Minerals, PI, Reactions, Ships, Modules, Drones, Charges, and Components. Multiple chips can be active at once (OR logic). Chips only appear when the current plan contains items of that type.
+
+Schedule view. A new toolbar tab that shows a manufacturing timeline for your current build plan. Enter your available manufacturing and invention slots to see how long the full build takes, or set a target number of days and it tells you how many slots you need. Slot counts default from your character skills.
+
+Best Source column. The grid now shows where each buy item is cheapest after freight. Flag one of your market hubs as "Local" in settings, and the column compares landed cost across all your hubs. Local hubs have no freight added; import hubs add your configured freight rate per m3. Shows the cheapest hub highlighted with savings versus the next option.
+
+5-day price trend column. The grid shows a directional price trend for each item based on market history. A green arrow means prices are rising, red means falling. Data is pulled from ESI market history (daily averages) and cached locally with a 35-day rolling window. When you have multiple market hubs configured it picks the region with the highest trade volume.
+
+### Improved
+
+Grid performance. The best-sell-price lookup is now precomputed into a map instead of scanning all prices per row. The build-tree cost calculation in the market analysis card is memoized so it no longer recomputes on every keystroke.
+
+Database write performance. Bulk upserts for system names, structure names, and asset locations are now wrapped in transactions instead of doing per-row fsyncs.
+
+Copy icons in the market price table now use inline icons instead of a Unicode glyph that rendered as a blank box on some platforms.
+
+### Fixed
+
+Profile auto-assignment now triggers correctly when loading a saved plan. Previously the backfill only watched for profile changes, not target changes, so opening a plan with unassigned targets would leave them without a profile until the next app restart.
+
+Corp-only asset mode no longer accumulates stale personal assets. When a character is set to sync only corporate assets, personal asset data from a previous sync is now cleared before the corp merge, preventing phantom items from appearing in the asset list.
+
+OAuth callback listener in release builds now binds to localhost only instead of all interfaces. This prevents other devices on the network from reaching the auth callback port.
+
+Search inputs with wildcards (% and _) are now escaped in LIKE queries across type search and blueprint browsing, preventing unexpected matches when searching for names containing those characters.
+
+Price history is no longer fetched for player structure hubs. ESI has no history endpoint for structures, so every request against one was a guaranteed failure. On plans with a structure hub configured, this alone could burn through the whole ESI error budget in a single refresh and lock out other price and asset requests for the rest of the minute.
+
+The ESI error budget tracker no longer locks up permanently once it hits zero. It now checks the reset window and resumes making requests once the budget window has passed, instead of refusing all further requests until the app is restarted.
+
+Market price fetching now requests all configured hubs concurrently instead of one at a time, matching what the code already claimed to do.
+
+Fixed a race condition where refreshing multiple characters at once could invalidate a character's refresh token, since EVE SSO issues a new single-use refresh token on every use. Refreshes for the same character are now serialized so concurrent ESI calls can't step on each other. When a refresh token is found to be permanently dead, the session-expired message now names the character instead of showing a raw ID.
+
+---
+
 ## [0.0.2] - 2026-05-14
 
 7 new features · 11 bug fixes · 1 change

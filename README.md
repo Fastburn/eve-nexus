@@ -1,6 +1,6 @@
 # Eve-Nexus
 
-![Version](https://img.shields.io/badge/version-0.0.2-blue)
+![Version](https://img.shields.io/badge/version-0.0.3--beta-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-green)
 ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8D8)
@@ -11,10 +11,22 @@ Eve-Nexus takes your characters' blueprints, assets, and active jobs from ESI an
 
 ---
 
+## Screenshots
+
+![Build Plan Grid](docs/screenshots/grid.png)
+![Build Graph](docs/screenshots/graph.png)
+![Schedule View](docs/screenshots/schedule.png)
+![Market Restock](docs/screenshots/restock.png)
+![Blueprint Browser](docs/screenshots/blueprints.png)
+
+---
+
 ## Features
 
 - **Build graph** — visual node graph of the full production chain
-- **Grid view** — sortable spreadsheet with quantities, job costs, sell prices, 30-day price averages, and buy volume
+- **Grid view** — sortable spreadsheet with quantities, job costs, sell prices, 30-day price averages, buy volume, best source, and 5-day price trend
+- **Schedule view** — manufacturing timeline for your build plan, with slot counts defaulting from your character skills
+- **Category filter chips** — narrow the grid to just the item categories present in your plan
 - **Profitability** — revenue, material cost, job cost, and margin calculated per plan
 - **Buy vs Build** — per-node comparison using live market prices
 - **System cost flagging** — cost index on structure profiles, cheapest alternatives surfaced

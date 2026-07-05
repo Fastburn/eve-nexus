@@ -34,3 +34,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# ── Infra (ops config, not app code) ───────────────────────────────────────────
+infra/
