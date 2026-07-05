@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Opt-in anonymous analytics ping.
 //! Fires on app launch if the user has opted in during first-run setup.
 //! Sends a single anonymous request to Plausible — no personal or in-game

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! User settings commands — analytics consent, first-run wizard state,
 //! global plan defaults (overproduction multiplier, freight rate), and the
 //! app data folder helper.

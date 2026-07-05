@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect, useState, useCallback } from "react";
 import { getIndustrySkills, getCharacterBlueprints, getTypeNames, getSystemCostInfo } from "../../api";
 import { useSettingsStore, useCharactersStore } from "../../store";

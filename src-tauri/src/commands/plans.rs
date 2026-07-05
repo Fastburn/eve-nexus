@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Production plan CRUD commands — create, read, update, delete plans stored
 //! in the local SQLite database.
 

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 export { useSdeStore } from "./sde";
 export { useCharactersStore } from "./characters";
 export { usePlanStore } from "./plan";
@@ -6,4 +9,3 @@ export { useSettingsStore } from "./settings";
 export { useUiStore } from "./ui";
 export { useMarketStore } from "./market";
 export type { MainView, RightPanelTab, ThemeId } from "./ui";
-

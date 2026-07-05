@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useState, useEffect } from "react";
 import { useUiStore, useSolverStore, useSettingsStore, useMarketStore } from "../../store";
 import { TypeIcon } from "../common";

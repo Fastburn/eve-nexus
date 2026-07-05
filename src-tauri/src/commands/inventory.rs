@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Inventory and configuration commands — virtual hangar, structure profiles,
 //! blueprint ME/TE overrides, manual build/buy decisions, and the blacklist.
 //!

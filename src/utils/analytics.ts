@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * Frontend analytics helper.
  * The actual ping fires from the Rust backend (analytics.rs) on launch —

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * Boot sequence — called once from main.tsx before the root is mounted.
  *

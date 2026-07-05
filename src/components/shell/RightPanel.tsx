@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useUiStore } from "../../store";
 import type { RightPanelTab } from "../../store";
 import { NodeDetailPanel } from "../panels";
@@ -68,6 +71,3 @@ export function RightPanel() {
     </div>
   );
 }
-
-
-

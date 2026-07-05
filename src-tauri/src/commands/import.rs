@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Eve Nexus contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! EFT fit import command — parses ship fitting text and resolves item names
 //! to EVE type IDs via the ESI `/universe/ids/` bulk resolution endpoint.
 
