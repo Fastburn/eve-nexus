@@ -84,6 +84,31 @@ pub struct InventionInfo {
     /// Base time per invention attempt in seconds (from SDE `industryActivities`).
     /// No skill or rig modifiers apply to invention job time in EVE.
     pub time_per_attempt_seconds: u32,
+    /// The decrypter the auto-pick would have chosen (even if the applied one
+    /// was an explicit user override). `None` means "no decrypter" is best.
+    pub best_decrypter_type_id: Option<TypeId>,
+    /// `true` if `decrypter` came from a user override rather than auto-pick.
+    pub is_overridden: bool,
+    /// ISK saved (per BPC produced) by using the applied choice instead of no
+    /// decrypter at all. Can be negative if the applied choice was a worse
+    /// user override than "none."
+    pub isk_saved_vs_no_decrypter: f64,
+    /// Runs of this invention already covered by owned BPC stock before this
+    /// node's attempts were planned. 0 if no stock was applied.
+    pub runs_from_stock: u64,
+}
+
+/// A user-tracked stock of already-invented BPCs for one product type.
+///
+/// One entry per product `type_id` — a single ME/TE/runs figure, matching the
+/// coarse granularity of the virtual hangar. The solver consumes runs from
+/// this stock before planning fresh invention attempts for that product.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BpcStockEntry {
+    pub me_level: u8,
+    pub te_level: u8,
+    pub runs_remaining: u64,
 }
 
 /// A decrypter item and its per-stat modifiers.
@@ -172,7 +197,17 @@ pub struct StructureProfile {
     /// ~1.0 highsec, ~1.9 lowsec, ~2.1 null/WH.
     pub space_modifier: f64,
     /// Per-category rig bonuses installed in this structure.
+    ///
+    /// Legacy manual-entry field. Once `installed_rigs` is non-empty, this is
+    /// derived from it at solve time (`solver::rigs::expand_installed_rigs`)
+    /// and overwritten; profiles that have never used the rig picker keep
+    /// whatever was entered here untouched.
     pub rig_bonuses: Vec<RigBonus>,
+    /// Type IDs of real rig items the user has fitted, picked by name in the
+    /// UI. Source of truth for rig bonuses going forward. Empty for profiles
+    /// never touched by the picker.
+    #[serde(default)]
+    pub installed_rigs: Vec<TypeId>,
 }
 
 // ─── Build tree ──────────────────────────────────────────────────────────────
@@ -342,6 +377,9 @@ pub struct SolverInput {
     pub active_jobs: Vec<EsiJob>,
     /// Virtual hangar stock: `type_id → quantity`.
     pub virtual_hangar: HashMap<TypeId, u64>,
+    /// Owned BPC stock for invented products: `product_type_id → stock`.
+    /// Consumed by the solver before planning fresh invention attempts.
+    pub bpc_inventory: HashMap<TypeId, BpcStockEntry>,
     /// ESI adjusted prices for EIV calculation: `type_id → isk`.
     pub adjusted_prices: HashMap<TypeId, f64>,
     /// System cost indices: `solar_system_id → CostIndex`.
@@ -350,6 +388,13 @@ pub struct SolverInput {
     pub structure_profiles: HashMap<String, StructureProfile>,
     /// Manual build/buy overrides: `type_id → Decision`.
     pub manual_decisions: HashMap<TypeId, Decision>,
+    /// Manual decrypter overrides for invented products: `product_type_id → decrypter_type_id`.
+    /// Absent = auto-pick the cheapest decrypter (or none).
+    pub decrypter_choices: HashMap<TypeId, TypeId>,
+    /// When `true`, the decrypter auto-pick minimizes total job time (invention
+    /// attempts + downstream manufacturing time from TE) instead of ISK cost.
+    /// Has no effect on an explicit per-item entry in `decrypter_choices`.
+    pub optimize_decrypters_for_time: bool,
     /// Types the solver must never build — always sourced by buying.
     pub blacklist: HashSet<TypeId>,
 

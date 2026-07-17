@@ -305,6 +305,19 @@
   border-color: var(--accent);
 }
 
+.sp-bpc-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.sp-bpc-input {
+  width: 40px;
+}
+
 .sp-override-badge {
   font-size: 10px;
   font-weight: 600;
@@ -465,6 +478,64 @@
 
 .sp-rig-remove:hover {
   color: var(--red);
+}
+
+.sp-rig-legacy-category,
+.sp-rig-legacy-value {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.sp-rig-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.sp-rig-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-1) 2px var(--sp-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.sp-rig-chip-name {
+  white-space: nowrap;
+}
+
+.sp-rig-chip-remove {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-3);
+  padding: 0 var(--sp-1);
+  border-radius: var(--radius);
+  transition: color 0.1s;
+}
+
+.sp-rig-chip-remove:hover {
+  color: var(--red);
+}
+
+.sp-rig-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.sp-rig-preview-badge {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px var(--sp-2);
 }
 
 /* ── Editor action buttons ───────────────────────────────────────────────── */

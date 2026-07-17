@@ -12,7 +12,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::db::local::LocalState;
-use crate::types::{Decision, StructureProfile, TypeId};
+use crate::types::{BpcStockEntry, Decision, StructureProfile, TypeId};
 use super::CommandError;
 
 // ─── Virtual hangar ───────────────────────────────────────────────────────────
@@ -35,6 +35,30 @@ pub fn set_hangar_quantity(
     local: State<'_, LocalState>,
 ) -> Result<(), CommandError> {
     local.0.set_hangar_quantity(type_id, quantity).map_err(Into::into)
+}
+
+// ─── BPC inventory ────────────────────────────────────────────────────────────
+
+/// Return owned BPC stock: `type_id → { meLevel, teLevel, runsRemaining }`.
+///
+/// The solver consumes runs from this stock before planning fresh invention
+/// attempts for that product, reducing datacore/decrypter/time cost.
+#[tauri::command]
+pub fn get_bpc_inventory(local: State<'_, LocalState>) -> Result<HashMap<TypeId, BpcStockEntry>, CommandError> {
+    local.0.get_bpc_inventory().map_err(Into::into)
+}
+
+/// Set the BPC stock for a single product type.
+/// Pass `runs_remaining = 0` to remove the entry.
+#[tauri::command]
+pub fn set_bpc_stock(
+    type_id: TypeId,
+    me_level: u8,
+    te_level: u8,
+    runs_remaining: u64,
+    local: State<'_, LocalState>,
+) -> Result<(), CommandError> {
+    local.0.set_bpc_stock(type_id, me_level, te_level, runs_remaining).map_err(Into::into)
 }
 
 // ─── Structure profiles ───────────────────────────────────────────────────────
@@ -190,4 +214,106 @@ pub fn add_to_blacklist(type_id: TypeId, local: State<'_, LocalState>) -> Result
 #[tauri::command]
 pub fn remove_from_blacklist(type_id: TypeId, local: State<'_, LocalState>) -> Result<(), CommandError> {
     local.0.remove_from_blacklist(type_id).map_err(Into::into)
+}
+
+// ─── Decrypter choices ────────────────────────────────────────────────────────
+
+/// A user-set decrypter override for a specific invented product type.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DecrypterChoiceEntry {
+    pub type_id: TypeId,
+    pub decrypter_type_id: TypeId,
+}
+
+/// Return all manual decrypter overrides.
+///
+/// Where no override exists, the solver auto-picks the cheapest decrypter
+/// (or none) for that invented product.
+#[tauri::command]
+pub fn get_decrypter_choices(local: State<'_, LocalState>) -> Result<Vec<DecrypterChoiceEntry>, CommandError> {
+    let map = local.0.get_decrypter_choices()?;
+    Ok(map
+        .into_iter()
+        .map(|(type_id, decrypter_type_id)| DecrypterChoiceEntry { type_id, decrypter_type_id })
+        .collect())
+}
+
+/// Set a manual decrypter override for an invented product type.
+#[tauri::command]
+pub fn set_decrypter_choice(
+    type_id: TypeId,
+    decrypter_type_id: TypeId,
+    local: State<'_, LocalState>,
+) -> Result<(), CommandError> {
+    local.0.set_decrypter_choice(type_id, decrypter_type_id).map_err(Into::into)
+}
+
+/// Remove a decrypter override, restoring automatic cheapest-decrypter selection.
+#[tauri::command]
+pub fn clear_decrypter_choice(
+    type_id: TypeId,
+    local: State<'_, LocalState>,
+) -> Result<(), CommandError> {
+    local.0.clear_decrypter_choice(type_id).map_err(Into::into)
+}
+
+/// A decrypter's static identity and invention modifiers, for frontend display.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DecrypterSpecEntry {
+    pub type_id: TypeId,
+    pub name: String,
+    pub run_modifier: i32,
+    pub me_modifier: i32,
+    pub te_modifier: i32,
+    pub probability_multiplier: f64,
+}
+
+/// Return the static table of all 8 T2 decrypters, so the frontend never
+/// needs to hardcode a duplicate copy of type_id/name.
+#[tauri::command]
+pub fn list_decrypters() -> Vec<DecrypterSpecEntry> {
+    crate::solver::list_decrypters()
+        .iter()
+        .map(|d| DecrypterSpecEntry {
+            type_id: d.type_id,
+            name: d.name.to_string(),
+            run_modifier: d.run_modifier,
+            me_modifier: d.me_modifier,
+            te_modifier: d.te_modifier,
+            probability_multiplier: d.probability_multiplier,
+        })
+        .collect()
+}
+
+/// A structure rig's static identity, tier, and ME/TE bonus, for frontend display.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RigSpecEntry {
+    pub type_id: TypeId,
+    pub name: String,
+    pub tier: u8,
+    pub me_bonus: f64,
+    pub te_bonus: f64,
+    pub job_type: crate::types::JobType,
+    pub category_names: Vec<String>,
+}
+
+/// Return the static table of all structure rigs, so the frontend never
+/// needs to hardcode a duplicate copy of type_id/name/bonus.
+#[tauri::command]
+pub fn list_rigs() -> Vec<RigSpecEntry> {
+    crate::solver::list_rigs()
+        .iter()
+        .map(|r| RigSpecEntry {
+            type_id: r.type_id,
+            name: r.name.to_string(),
+            tier: r.tier,
+            me_bonus: r.me_bonus,
+            te_bonus: r.te_bonus,
+            job_type: r.job_type,
+            category_names: r.category_names.iter().map(|s| s.to_string()).collect(),
+        })
+        .collect()
 }

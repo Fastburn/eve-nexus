@@ -31,6 +31,7 @@ export function Toolbar() {
   const structureProfiles  = useSettingsStore((s) => s.structureProfiles);
   const manualDecisions    = useSettingsStore((s) => s.manualDecisions);
   const blacklist          = useSettingsStore((s) => s.blacklist);
+  const decrypterChoices   = useSettingsStore((s) => s.decrypterChoices);
 
   const mainView        = useUiStore((s) => s.mainView);
   const setMainView     = useUiStore((s) => s.setMainView);
@@ -47,7 +48,7 @@ export function Toolbar() {
 
   function handleSolve() {
     if (targets.length === 0 || solving) return;
-    solve(buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, effectiveMultiplier));
+    solve(buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, decrypterChoices, effectiveMultiplier));
   }
 
   function handleMultClick() {

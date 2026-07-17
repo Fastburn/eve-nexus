@@ -5,6 +5,7 @@ import type {
   BlueprintOverrideEntry,
   BuildTarget,
   Decision,
+  DecrypterChoiceEntry,
   ManualDecisionEntry,
   SolvePlanRequest,
   StructureProfile,
@@ -18,6 +19,7 @@ export function buildSolveRequest(
   structureProfiles: StructureProfile[],
   manualDecisions: ManualDecisionEntry[],
   blacklist: TypeId[],
+  decrypterChoices: DecrypterChoiceEntry[] = [],
   multiplier = 1,
 ): SolvePlanRequest {
   const meLevels: Record<number, number> = {};
@@ -30,6 +32,8 @@ export function buildSolveRequest(
   for (const p of structureProfiles) profileMap[p.id] = p;
   const decisionMap: Record<number, Decision> = {};
   for (const d of manualDecisions) decisionMap[d.typeId] = d.decision;
+  const decrypterMap: Record<number, TypeId> = {};
+  for (const d of decrypterChoices) decrypterMap[d.typeId] = d.decrypterTypeId;
 
   const scaledTargets = multiplier === 1
     ? targets
@@ -41,6 +45,7 @@ export function buildSolveRequest(
     teLevels,
     structureProfiles: profileMap,
     manualDecisions: decisionMap,
+    decrypterChoices: decrypterMap,
     blacklist,
   };
 }

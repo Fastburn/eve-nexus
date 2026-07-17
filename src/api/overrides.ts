@@ -5,7 +5,10 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BlueprintOverrideEntry,
   Decision,
+  DecrypterChoiceEntry,
+  DecrypterSpecEntry,
   ManualDecisionEntry,
+  RigSpecEntry,
   TypeId,
 } from "./types";
 
@@ -67,4 +70,34 @@ export async function addToBlacklist(typeId: TypeId): Promise<void> {
 /** Remove a type from the blacklist. */
 export async function removeFromBlacklist(typeId: TypeId): Promise<void> {
   return invoke("remove_from_blacklist", { typeId });
+}
+
+// ── Decrypter choices ──────────────────────────────────────────────────────────
+
+/** Return all manual decrypter overrides. */
+export async function getDecrypterChoices(): Promise<DecrypterChoiceEntry[]> {
+  return invoke<DecrypterChoiceEntry[]>("get_decrypter_choices");
+}
+
+/** Force the solver to use a specific decrypter for an invented product. */
+export async function setDecrypterChoice(
+  typeId: TypeId,
+  decrypterTypeId: TypeId,
+): Promise<void> {
+  return invoke("set_decrypter_choice", { typeId, decrypterTypeId });
+}
+
+/** Remove the decrypter override for a type (reverts to auto-pick). */
+export async function clearDecrypterChoice(typeId: TypeId): Promise<void> {
+  return invoke("clear_decrypter_choice", { typeId });
+}
+
+/** Return the static table of all 8 T2 decrypters, for populating pickers. */
+export async function listDecrypters(): Promise<DecrypterSpecEntry[]> {
+  return invoke<DecrypterSpecEntry[]>("list_decrypters");
+}
+
+/** Return the static table of all structure rigs, for populating pickers. */
+export async function listRigs(): Promise<RigSpecEntry[]> {
+  return invoke<RigSpecEntry[]>("list_rigs");
 }

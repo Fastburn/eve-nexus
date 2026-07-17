@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, useUiStore, useMarketStore } from "../../store";
 import { getTypeNames, getSystemCostInfo, searchMarketStructures, getAssetStructures } from "../../api";
+import { getOptimizeDecryptersForTime, setOptimizeDecryptersForTime } from "../../api/settings";
+import { listRigs } from "../../api/overrides";
 import { getIndustryCategories } from "../../api/blueprints";
 import { TypeIcon, TypePicker, SystemPicker, Select } from "../common";
-import type { JobType, IndustryCategory, MarketRegion, RigBonus, StructureProfile, StructureSearchResult, SystemCostInfo, TypeSummary } from "../../api";
+import type { JobType, IndustryCategory, MarketRegion, RigSpecEntry, StructureProfile, StructureSearchResult, SystemCostInfo, TypeSummary } from "../../api";
 import type { ThemeId } from "../../store";
 import "./SettingsPanel.css";
 import "../common/TypePicker.css";
@@ -23,6 +25,7 @@ function newProfile(): StructureProfile {
     facilityTax: 0.1,
     spaceModifier: 1.0,
     rigBonuses: [],
+    installedRigs: [],
   };
 }
 
@@ -38,6 +41,7 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
   const [profile, setProfile] = useState<StructureProfile>(initial);
   const [systemName, setSystemName] = useState<string | null>(null);
   const [categories, setCategories] = useState<IndustryCategory[]>([]);
+  const [rigSpecs, setRigSpecs] = useState<RigSpecEntry[]>([]);
   const [taxInput, setTaxInput]           = useState(() => (initial.facilityTax * 100).toFixed(1));
   const [modifierInput, setModifierInput] = useState(() => String(initial.spaceModifier));
 
@@ -51,6 +55,10 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
 
   useEffect(() => {
     getIndustryCategories().then(setCategories).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    listRigs().then(setRigSpecs).catch(() => {});
   }, []);
 
   // Load the system name for an existing solarSystemId on mount.
@@ -67,25 +75,41 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
     setProfile((p) => ({ ...p, [key]: value }));
   }
 
-  function addRig() {
-    setProfile((p) => ({
-      ...p,
-      rigBonuses: [...p.rigBonuses, { categoryId: 0, meBonus: 0, teBonus: 0 }],
-    }));
+  const rigByTypeId = new Map(rigSpecs.map((r) => [r.typeId, r]));
+  const relevantRigSpecs = rigSpecs.filter((r) => r.jobType === profile.jobType);
+
+  function addInstalledRig(typeId: number) {
+    if (!typeId || profile.installedRigs.includes(typeId)) return;
+    if (profile.installedRigs.length === 0 && profile.rigBonuses.length > 0) {
+      const ok = window.confirm(
+        "This profile has manually-entered rig bonuses. Picking a rig here switches it to automatic, picker-derived bonuses, replacing the manual entries. Continue?"
+      );
+      if (!ok) return;
+    }
+    setProfile((p) => ({ ...p, installedRigs: [...p.installedRigs, typeId] }));
   }
 
-  function updateRig(i: number, patch: Partial<RigBonus>) {
-    setProfile((p) => ({
-      ...p,
-      rigBonuses: p.rigBonuses.map((r, idx) => idx === i ? { ...r, ...patch } : r),
-    }));
+  function removeInstalledRig(typeId: number) {
+    setProfile((p) => ({ ...p, installedRigs: p.installedRigs.filter((id) => id !== typeId) }));
   }
 
-  function removeRig(i: number) {
-    setProfile((p) => ({
-      ...p,
-      rigBonuses: p.rigBonuses.filter((_, idx) => idx !== i),
-    }));
+  function removeLegacyRig(i: number) {
+    setProfile((p) => ({ ...p, rigBonuses: p.rigBonuses.filter((_, idx) => idx !== i) }));
+  }
+
+  // Live client-side preview of the resolved category bonuses, mirroring
+  // the backend's elementwise-max conflict resolution in expand_installed_rigs.
+  const rigPreview = new Map<string, { me: number; te: number }>();
+  for (const typeId of profile.installedRigs) {
+    const spec = rigByTypeId.get(typeId);
+    if (!spec) continue;
+    for (const name of spec.categoryNames) {
+      const cur = rigPreview.get(name) ?? { me: 0, te: 0 };
+      rigPreview.set(name, {
+        me: Math.max(cur.me, spec.meBonus),
+        te: Math.max(cur.te, spec.teBonus),
+      });
+    }
   }
 
   const valid = profile.label.trim().length > 0;
@@ -200,69 +224,94 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
         </span>
       </div>
 
-      <div className="sp-field">
-        <div className="sp-label-row">
-          <label
-            className="sp-label"
-            title="Material Efficiency and Time Efficiency bonuses from structure rigs. In-game, navigate to the structure's Industry tab to see installed rigs and their bonuses. Bonuses are per item category (e.g. category 6 = Ships, 7 = Modules). T2 rigs give ~double the bonus of T1."
-          >
-            Rig Bonuses
-          </label>
-          <button className="sp-add-rig-btn" onClick={addRig}>+ Add</button>
-        </div>
-        {profile.rigBonuses.length === 0 ? (
-          <div className="sp-rig-empty">
-            No rigs — add ME/TE bonuses from the structure's installed rigs.
-            <span className="sp-rig-empty-tip">
-              Example: a Sotiyo with T2 Thukker Manufacturing Efficiency rigs gives
-              4.2% ME for Ships (category 6).
-            </span>
+      {profile.jobType !== "Invention" && (
+        <div className="sp-field">
+          <div className="sp-label-row">
+            <label
+              className="sp-label"
+              title="Pick the rigs actually fitted to this structure by name — the app computes the ME/TE bonus for you. In-game, check the structure's Industry tab for installed rigs."
+            >
+              Structure Rigs
+            </label>
           </div>
-        ) : (
-          <div className="sp-rig-list">
-            <div className="sp-rig-header">
-              <span>Category</span>
-              <span title="Material Efficiency bonus in %. Reduces material requirements for items in this category. T1 Rigs ≈2%, T2 Rigs ≈4%.">ME %</span>
-              <span title="Time Efficiency bonus in %. Reduces job duration for items in this category. T1 Rigs ≈2%, T2 Rigs ≈4%.">TE %</span>
-              <span />
-            </div>
-            {profile.rigBonuses.map((rig, i) => (
-              <div key={i} className="sp-rig-row">
-                <Select
-                  className="sp-rig-select"
-                  value={String(rig.categoryId)}
-                  onChange={(v) => updateRig(i, { categoryId: parseInt(v, 10) || 0 })}
-                  options={[
-                    { value: "0", label: "— Select —" },
-                    ...categories.map((c) => ({ value: String(c.categoryId), label: c.categoryName })),
-                  ]}
-                />
-                <input
-                  className="sp-input sp-rig-input"
-                  type="number"
-                  min={0}
-                  max={25}
-                  step={0.1}
-                  value={rig.meBonus}
-                  onChange={(e) => updateRig(i, { meBonus: parseFloat(e.target.value) || 0 })}
-                />
-                <input
-                  className="sp-input sp-rig-input"
-                  type="number"
-                  min={0}
-                  max={20}
-                  step={0.1}
-                  value={rig.teBonus}
-                  onChange={(e) => updateRig(i, { teBonus: parseFloat(e.target.value) || 0 })}
-                />
-                <button className="sp-rig-remove" onClick={() => removeRig(i)} title="Remove rig">
-                  ×
-                </button>
+
+          {profile.installedRigs.length === 0 && profile.rigBonuses.length > 0 && (
+            <div className="sp-rig-list">
+              <div className="sp-rig-empty-tip" style={{ marginBottom: 4 }}>
+                Legacy manual entries — pick a rig below to switch this profile to the
+                automatic picker (replaces these).
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div className="sp-rig-header">
+                <span>Category</span>
+                <span>ME %</span>
+                <span>TE %</span>
+                <span />
+              </div>
+              {profile.rigBonuses.map((rig, i) => (
+                <div key={i} className="sp-rig-row">
+                  <span className="sp-rig-legacy-category">
+                    {categories.find((c) => c.categoryId === rig.categoryId)?.categoryName ?? `#${rig.categoryId}`}
+                  </span>
+                  <span className="sp-rig-legacy-value">{(rig.meBonus * 100).toFixed(1)}%</span>
+                  <span className="sp-rig-legacy-value">{(rig.teBonus * 100).toFixed(1)}%</span>
+                  <button className="sp-rig-remove" onClick={() => removeLegacyRig(i)} title="Remove">
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Select
+            className="sp-select"
+            value="0"
+            onChange={(v) => addInstalledRig(parseInt(v, 10) || 0)}
+            options={[
+              { value: "0", label: "+ Add a rig…" },
+              ...relevantRigSpecs
+                .filter((r) => !profile.installedRigs.includes(r.typeId))
+                .map((r) => ({ value: String(r.typeId), label: `${r.name} (T${r.tier})` })),
+            ]}
+          />
+
+          {profile.installedRigs.length === 0 ? (
+            <div className="sp-rig-empty">
+              No rigs fitted. Pick one above to add its ME/TE bonus automatically.
+            </div>
+          ) : (
+            <div className="sp-rig-chip-list">
+              {profile.installedRigs.map((typeId) => {
+                const spec = rigByTypeId.get(typeId);
+                if (!spec) return null;
+                return (
+                  <span key={typeId} className="sp-rig-chip">
+                    <span className="sp-rig-chip-name">{spec.name}</span>
+                    <button
+                      className="sp-rig-chip-remove"
+                      onClick={() => removeInstalledRig(typeId)}
+                      title="Remove rig"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {rigPreview.size > 0 && (
+            <div className="sp-rig-preview">
+              {[...rigPreview.entries()].map(([name, { me, te }]) => (
+                <span key={name} className="sp-rig-preview-badge">
+                  {name}:
+                  {me > 0 && ` +${(me * profile.spaceModifier * 100).toFixed(1)}% ME`}
+                  {te > 0 && ` +${(te * profile.spaceModifier * 100).toFixed(1)}% TE`}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="sp-editor-actions">
         <button className="sp-btn-save" onClick={() => onSave(profile)} disabled={!valid}>
@@ -339,13 +388,15 @@ function MarketHubEditor({
   onCancel,
 }: {
   initial: MarketRegion;
-  onSave: (r: MarketRegion) => void;
+  onSave: (r: MarketRegion) => Promise<void>;
   onCancel: () => void;
 }) {
   const isStructureInit = initial.structureId != null;
   const [hub, setHub]             = useState<MarketRegion>(initial);
   const [usePreset, setUsePreset] = useState(!isStructureInit);
   const [isStructure, setIsStructure] = useState(isStructureInit);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
 
   // Structure search state
   const [structQuery, setStructQuery]   = useState(initial.label && isStructureInit ? initial.label : "");
@@ -432,12 +483,25 @@ function MarketHubEditor({
     if (preset) setHub((h) => ({ ...h, label: preset.label, regionId: preset.regionId }));
   }
 
-  function handleSave() {
+  async function handleSave() {
+    let toSave: MarketRegion | null = null;
     if (isStructure && selectedStructure) {
       const sid = selectedStructure.structureId;
-      onSave({ ...hub, label: hub.label || selectedStructure.structureName, regionId: sid, structureId: sid });
+      toSave = { ...hub, label: hub.label || selectedStructure.structureName, regionId: sid, structureId: sid };
     } else if (!isStructure) {
-      onSave({ ...hub, structureId: undefined });
+      toSave = { ...hub, structureId: undefined };
+    }
+    if (!toSave) return;
+    setSaveError(null);
+    setSaving(true);
+    try {
+      await onSave(toSave);
+    } catch (e: unknown) {
+      const msg = e != null && typeof e === "object" && "message" in e
+        ? String((e as Record<string, unknown>).message) : String(e);
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -581,11 +645,17 @@ function MarketHubEditor({
         </div>
       </div>
 
+      {saveError && (
+        <div className="sp-hint" style={{ color: "var(--red)" }}>
+          Save failed: {saveError}
+        </div>
+      )}
+
       <div className="sp-editor-actions">
-        <button className="sp-btn-save" onClick={handleSave} disabled={!valid}>
-          Save Hub
+        <button className="sp-btn-save" onClick={handleSave} disabled={!valid || saving}>
+          {saving ? "Saving…" : "Save Hub"}
         </button>
-        <button className="sp-btn-cancel" onClick={onCancel}>
+        <button className="sp-btn-cancel" onClick={onCancel} disabled={saving}>
           Cancel
         </button>
       </div>
@@ -610,6 +680,8 @@ export function SettingsPanel() {
   const deleteProfile      = useSettingsStore((s) => s.deleteProfile);
   const hangar             = useSettingsStore((s) => s.hangar);
   const setHangarQty       = useSettingsStore((s) => s.setHangarQty);
+  const bpcInventory       = useSettingsStore((s) => s.bpcInventory);
+  const setBpcStockEntry   = useSettingsStore((s) => s.setBpcStockEntry);
   const blacklist          = useSettingsStore((s) => s.blacklist);
   const addBlacklist       = useSettingsStore((s) => s.addBlacklist);
   const removeBlacklist    = useSettingsStore((s) => s.removeBlacklist);
@@ -625,18 +697,34 @@ export function SettingsPanel() {
   const [editingHub, setEditingHub]           = useState<MarketRegion | null>(null);
   const [confirmHubDeleteId, setConfirmHubDeleteId] = useState<string | null>(null);
   const [typeNames, setTypeNames]             = useState<Record<number, string>>({});
+  const [optimizeForTime, setOptimizeForTime] = useState(false);
+
+  useEffect(() => {
+    getOptimizeDecryptersForTime().then(setOptimizeForTime).catch(() => {});
+  }, []);
+
+  async function handleToggleOptimizeForTime() {
+    const next = !optimizeForTime;
+    setOptimizeForTime(next); // optimistic
+    try {
+      await setOptimizeDecryptersForTime(next);
+    } catch {
+      setOptimizeForTime(!next); // revert on failure
+    }
+  }
 
   // Resolve type names for hangar, blacklist, and overrides whenever they change.
   useEffect(() => {
     const ids = [
       ...Object.keys(hangar).map(Number),
+      ...Object.keys(bpcInventory).map(Number),
       ...blacklist,
       ...blueprintOverrides.map((o) => o.typeId),
     ];
     const unique = [...new Set(ids)];
     if (unique.length === 0) return;
     getTypeNames(unique).then(setTypeNames).catch(() => {});
-  }, [hangar, blacklist, blueprintOverrides]);
+  }, [hangar, bpcInventory, blacklist, blueprintOverrides]);
 
   async function handleSaveProfile(p: StructureProfile) {
     await saveProfile(p);
@@ -650,6 +738,10 @@ export function SettingsPanel() {
 
   function handlePickHangar(type: TypeSummary) {
     setHangarQty(type.typeId, 1);
+  }
+
+  function handlePickBpcStock(type: TypeSummary) {
+    setBpcStockEntry(type.typeId, 0, 0, 1);
   }
 
   function handlePickBlacklist(type: TypeSummary) {
@@ -693,6 +785,11 @@ export function SettingsPanel() {
   const hangarEntries = Object.entries(hangar).map(([id, qty]) => ({
     typeId: Number(id),
     qty,
+  }));
+
+  const bpcStockEntries = Object.entries(bpcInventory).map(([id, entry]) => ({
+    typeId: Number(id),
+    ...entry,
   }));
 
   return (
@@ -740,6 +837,28 @@ export function SettingsPanel() {
             title={analyticsConsent === "Granted" ? "Disable telemetry" : "Enable telemetry"}
           >
             {analyticsConsent === "Granted" ? "On" : "Off"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Invention ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">Invention</div>
+        <div className="sp-analytics-row">
+          <div className="sp-analytics-text">
+            <span className="sp-analytics-label">Decrypter auto-pick: optimize for time</span>
+            <span className="sp-analytics-desc">
+              When picking a decrypter automatically, prefer whichever minimizes total job
+              time (invention + manufacturing) instead of total ISK cost. Off by default. Has
+              no effect where you've manually chosen a decrypter for an item.
+            </span>
+          </div>
+          <button
+            className={`sp-toggle${optimizeForTime ? " active" : ""}`}
+            onClick={handleToggleOptimizeForTime}
+            title={optimizeForTime ? "Switch back to cost optimization" : "Switch to time optimization"}
+          >
+            {optimizeForTime ? "Time" : "Cost"}
           </button>
         </div>
       </div>
@@ -817,7 +936,10 @@ export function SettingsPanel() {
                     <span className="sp-profile-name">{p.label}</span>
                     <span className="sp-profile-meta">
                       {p.jobType} · Tax {(p.facilityTax * 100).toFixed(1)}%
-                      {p.rigBonuses.length > 0 && ` · ${p.rigBonuses.length} rig${p.rigBonuses.length > 1 ? "s" : ""}`}
+                      {(() => {
+                        const rigCount = p.installedRigs.length > 0 ? p.installedRigs.length : p.rigBonuses.length;
+                        return rigCount > 0 && ` · ${rigCount} rig${rigCount > 1 ? "s" : ""}`;
+                      })()}
                     </span>
                     <ProfileCostBadge profile={p} />
                   </div>
@@ -870,6 +992,78 @@ export function SettingsPanel() {
                 <button
                   className="sp-btn-sm sp-btn-remove"
                   onClick={() => setHangarQty(typeId, 0)}
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── BPC stock ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">BPC Stock</div>
+        <span className="sp-hint">
+          Already-invented BPCs you have on hand. The solver uses these runs before planning
+          new invention attempts. Different from Blueprint Overrides below, which set ME/TE
+          research levels for owned BPOs (unlimited runs) — this is finite-run BPC stock that
+          gets consumed as it's used.
+        </span>
+        <TypePicker placeholder="Add BPC stock…" onSelect={handlePickBpcStock} />
+        {bpcStockEntries.length === 0 ? (
+          <div className="sp-empty-note">No BPC stock set.</div>
+        ) : (
+          <div className="sp-item-list">
+            {bpcStockEntries.map(({ typeId, meLevel, teLevel, runsRemaining }) => (
+              <div key={typeId} className="sp-item-row">
+                <TypeIcon typeId={typeId} variant="icon" size={32} displaySize={18} alt="" />
+                <span className="sp-item-name">{typeNames[typeId] ?? `#${typeId}`}</span>
+                <label className="sp-bpc-field">
+                  ME
+                  <input
+                    className="sp-qty-input sp-bpc-input"
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={meLevel}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setBpcStockEntry(typeId, isNaN(v) ? 0 : v, teLevel, runsRemaining);
+                    }}
+                  />
+                </label>
+                <label className="sp-bpc-field">
+                  TE
+                  <input
+                    className="sp-qty-input sp-bpc-input"
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={teLevel}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setBpcStockEntry(typeId, meLevel, isNaN(v) ? 0 : v, runsRemaining);
+                    }}
+                  />
+                </label>
+                <label className="sp-bpc-field">
+                  Runs
+                  <input
+                    className="sp-qty-input sp-bpc-input"
+                    type="number"
+                    min={0}
+                    value={runsRemaining}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setBpcStockEntry(typeId, meLevel, teLevel, isNaN(v) ? 0 : v);
+                    }}
+                  />
+                </label>
+                <button
+                  className="sp-btn-sm sp-btn-remove"
+                  onClick={() => setBpcStockEntry(typeId, meLevel, teLevel, 0)}
                   title="Remove"
                 >
                   ×

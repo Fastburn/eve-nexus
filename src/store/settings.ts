@@ -19,11 +19,20 @@ import {
   removeFromBlacklist,
   getVirtualHangar,
   setHangarQuantity,
+  getBpcInventory,
+  setBpcStock,
+  getDecrypterChoices,
+  setDecrypterChoice,
+  clearDecrypterChoice,
+  listDecrypters,
 } from "../api";
 import type {
   AnalyticsConsent,
   BlueprintOverrideEntry,
+  BpcStockEntry,
   Decision,
+  DecrypterChoiceEntry,
+  DecrypterSpecEntry,
   ManualDecisionEntry,
   StructureProfile,
   TypeId,
@@ -38,6 +47,11 @@ interface SettingsState {
   blacklist: TypeId[];
   /** typeId → quantity */
   hangar: Record<TypeId, number>;
+  /** typeId → owned BPC stock */
+  bpcInventory: Record<TypeId, BpcStockEntry>;
+  decrypterChoices: DecrypterChoiceEntry[];
+  /** Static table of all 8 T2 decrypters, for populating pickers. */
+  decrypterSpecs: DecrypterSpecEntry[];
 
   // ── Actions ───────────────────────────────────────────────────────────────
   /** Load all settings from the DB — call once on app init. */
@@ -58,6 +72,16 @@ interface SettingsState {
   removeBlacklist: (typeId: TypeId) => Promise<void>;
 
   setHangarQty: (typeId: TypeId, quantity: number) => Promise<void>;
+
+  setBpcStockEntry: (
+    typeId: TypeId,
+    meLevel: number,
+    teLevel: number,
+    runsRemaining: number,
+  ) => Promise<void>;
+
+  setDecrypterChoice: (typeId: TypeId, decrypterTypeId: TypeId) => Promise<void>;
+  clearDecrypterChoice: (typeId: TypeId) => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -67,6 +91,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   manualDecisions: [],
   blacklist: [],
   hangar: {},
+  bpcInventory: {},
+  decrypterChoices: [],
+  decrypterSpecs: [],
 
   init: async () => {
     const [
@@ -76,6 +103,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       decisions,
       blacklist,
       hangar,
+      bpcInventory,
+      decrypterChoices,
+      decrypterSpecs,
     ] = await Promise.all([
       getAnalyticsConsent(),
       getStructureProfiles(),
@@ -83,6 +113,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       getManualDecisions(),
       getBlacklist(),
       getVirtualHangar(),
+      getBpcInventory(),
+      getDecrypterChoices(),
+      listDecrypters(),
     ]);
     set({
       analyticsConsent: consent,
@@ -91,6 +124,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       manualDecisions: decisions,
       blacklist,
       hangar,
+      bpcInventory,
+      decrypterChoices,
+      decrypterSpecs,
     });
   },
 
@@ -171,5 +207,33 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
       return { hangar };
     });
+  },
+
+  setBpcStockEntry: async (typeId, meLevel, teLevel, runsRemaining) => {
+    await setBpcStock(typeId, meLevel, teLevel, runsRemaining);
+    set((s) => {
+      const bpcInventory = { ...s.bpcInventory };
+      if (runsRemaining === 0) {
+        delete bpcInventory[typeId];
+      } else {
+        bpcInventory[typeId] = { meLevel, teLevel, runsRemaining };
+      }
+      return { bpcInventory };
+    });
+  },
+
+  setDecrypterChoice: async (typeId, decrypterTypeId) => {
+    await setDecrypterChoice(typeId, decrypterTypeId);
+    set((s) => {
+      const rest = s.decrypterChoices.filter((d) => d.typeId !== typeId);
+      return { decrypterChoices: [...rest, { typeId, decrypterTypeId }] };
+    });
+  },
+
+  clearDecrypterChoice: async (typeId) => {
+    await clearDecrypterChoice(typeId);
+    set((s) => ({
+      decrypterChoices: s.decrypterChoices.filter((d) => d.typeId !== typeId),
+    }));
   },
 }));

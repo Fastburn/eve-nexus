@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { invoke } from "@tauri-apps/api/core";
-import type { TypeId } from "./types";
+import type { BpcStockEntry, TypeId } from "./types";
 
 /** Return the full virtual hangar as a map of typeId → quantity. */
 export async function getVirtualHangar(): Promise<Record<TypeId, number>> {
@@ -18,4 +18,22 @@ export async function setHangarQuantity(
   quantity: number,
 ): Promise<void> {
   return invoke("set_hangar_quantity", { typeId, quantity });
+}
+
+/** Return owned BPC stock as a map of typeId → { meLevel, teLevel, runsRemaining }. */
+export async function getBpcInventory(): Promise<Record<TypeId, BpcStockEntry>> {
+  return invoke<Record<TypeId, BpcStockEntry>>("get_bpc_inventory");
+}
+
+/**
+ * Set the BPC stock for a single product type.
+ * Passing runsRemaining = 0 removes the entry entirely.
+ */
+export async function setBpcStock(
+  typeId: TypeId,
+  meLevel: number,
+  teLevel: number,
+  runsRemaining: number,
+): Promise<void> {
+  return invoke("set_bpc_stock", { typeId, meLevel, teLevel, runsRemaining });
 }

@@ -44,6 +44,7 @@ export function Shell() {
   const structureProfiles  = useSettingsStore((s) => s.structureProfiles);
   const manualDecisions    = useSettingsStore((s) => s.manualDecisions);
   const blacklist          = useSettingsStore((s) => s.blacklist);
+  const decrypterChoices   = useSettingsStore((s) => s.decrypterChoices);
   const effectiveMultiplier = usePlanStore((s) => s.effectiveMultiplier);
 
   // ── Global keyboard shortcuts ─────────────────────────────────────────────
@@ -64,7 +65,7 @@ export function Shell() {
       if (ctrl && e.key === "Enter") {
         e.preventDefault();
         if (targets.length === 0 || solving) return;
-        solve(buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, effectiveMultiplier));
+        solve(buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, decrypterChoices, effectiveMultiplier));
         return;
       }
 
@@ -80,7 +81,7 @@ export function Shell() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     activePlan, targets, saveCurrent, isDirty, solving, solve,
-    blueprintOverrides, structureProfiles, manualDecisions, blacklist, effectiveMultiplier,
+    blueprintOverrides, structureProfiles, manualDecisions, blacklist, decrypterChoices, effectiveMultiplier,
     showAbout, setShowAbout, showConsent, rightPanelOpen, closeRightPanel,
   ]);
 
