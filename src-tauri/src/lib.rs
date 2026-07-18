@@ -107,6 +107,9 @@ pub fn run() {
             // Virtual hangar
             commands::get_virtual_hangar,
             commands::set_hangar_quantity,
+            // BPC inventory
+            commands::get_bpc_inventory,
+            commands::set_bpc_stock,
             // Structure profiles
             commands::get_structure_profiles,
             commands::save_structure_profile,
@@ -122,6 +125,12 @@ pub fn run() {
             commands::clear_manual_decision,
             commands::add_to_blacklist,
             commands::remove_from_blacklist,
+            // Decrypter choices
+            commands::get_decrypter_choices,
+            commands::set_decrypter_choice,
+            commands::clear_decrypter_choice,
+            commands::list_decrypters,
+            commands::list_rigs,
             // Settings
             commands::get_analytics_consent,
             commands::set_analytics_consent,
@@ -168,6 +177,8 @@ pub fn run() {
             commands::delete_restock_target,
             commands::get_restock_margin,
             commands::set_restock_margin,
+            commands::get_optimize_decrypters_for_time,
+            commands::set_optimize_decrypters_for_time,
             commands::get_default_overproduction_multiplier,
             commands::set_default_overproduction_multiplier,
             commands::get_default_freight_isk_per_m3,

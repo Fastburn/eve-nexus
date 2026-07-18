@@ -10,6 +10,7 @@ use crate::db::local::{
     AnalyticsConsent, LocalState,
     SETTING_WIZARD_COMPLETED,
     SETTING_DEFAULT_MULTIPLIER, SETTING_DEFAULT_FREIGHT_ISK_PER_M3,
+    SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME,
 };
 use super::CommandError;
 
@@ -91,6 +92,26 @@ pub fn set_default_freight_isk_per_m3(
     local: State<'_, LocalState>,
 ) -> Result<(), CommandError> {
     local.0.set_setting(SETTING_DEFAULT_FREIGHT_ISK_PER_M3, &isk_per_m3.to_string()).map_err(Into::into)
+}
+
+/// Get whether the decrypter auto-pick optimizes for job time instead of ISK
+/// cost. `false` (default) = minimize total ISK cost (invention + downstream
+/// material cost from ME). `true` = minimize total job time instead.
+#[tauri::command]
+pub fn get_optimize_decrypters_for_time(local: State<'_, LocalState>) -> Result<bool, CommandError> {
+    let v = local.0
+        .get_setting(SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME)
+        .map_err(CommandError::from)?;
+    Ok(v.as_deref() == Some("true"))
+}
+
+/// Set whether the decrypter auto-pick optimizes for job time instead of ISK cost.
+#[tauri::command]
+pub fn set_optimize_decrypters_for_time(
+    enabled: bool,
+    local: State<'_, LocalState>,
+) -> Result<(), CommandError> {
+    local.0.set_setting(SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME, if enabled { "true" } else { "false" }).map_err(Into::into)
 }
 
 // ─── App data folder ──────────────────────────────────────────────────────────

@@ -47,6 +47,7 @@ export interface StructureProfile {
   facilityTax: number;
   spaceModifier: number;
   rigBonuses: RigBonus[];
+  installedRigs: TypeId[];
 }
 
 // ── Type metadata ─────────────────────────────────────────────────────────────
@@ -85,6 +86,21 @@ export interface InventionInfo {
   outputTe: number;
   datacores: MaterialLine[];
   decrypter: DecrypterInfo | null;
+  /** The decrypter the auto-pick would have chosen, even under an override. */
+  bestDecrypterTypeId: TypeId | null;
+  /** True if `decrypter` came from a user override rather than auto-pick. */
+  isOverridden: boolean;
+  /** ISK saved (per BPC) by using the applied choice instead of no decrypter. */
+  iskSavedVsNoDecrypter: number;
+  /** Runs already covered by owned BPC stock before this invention was planned. */
+  runsFromStock: number;
+}
+
+/** A user-tracked stock of already-invented BPCs for one product type. */
+export interface BpcStockEntry {
+  meLevel: number;
+  teLevel: number;
+  runsRemaining: number;
 }
 
 /**
@@ -138,7 +154,36 @@ export interface SolvePlanRequest {
   teLevels?: Record<TypeId, number>;
   structureProfiles?: Record<string, StructureProfile>;
   manualDecisions?: Record<TypeId, Decision>;
+  decrypterChoices?: Record<TypeId, TypeId>;
   blacklist?: TypeId[];
+}
+
+// ── Decrypters ────────────────────────────────────────────────────────────────
+
+export interface DecrypterChoiceEntry {
+  typeId: TypeId;
+  decrypterTypeId: TypeId;
+}
+
+/** Static identity and invention modifiers for one of the 8 T2 decrypters. */
+export interface DecrypterSpecEntry {
+  typeId: TypeId;
+  name: string;
+  runModifier: number;
+  meModifier: number;
+  teModifier: number;
+  probabilityMultiplier: number;
+}
+
+/** Static identity, tier, and ME/TE bonus for one real structure rig. */
+export interface RigSpecEntry {
+  typeId: TypeId;
+  name: string;
+  tier: number;
+  meBonus: number;
+  teBonus: number;
+  jobType: JobType;
+  categoryNames: string[];
 }
 
 // ── Schedule ──────────────────────────────────────────────────────────────────

@@ -34,6 +34,7 @@ export function ScheduleView() {
   const structureProfiles  = useSettingsStore((s) => s.structureProfiles);
   const manualDecisions    = useSettingsStore((s) => s.manualDecisions);
   const blacklist          = useSettingsStore((s) => s.blacklist);
+  const decrypterChoices   = useSettingsStore((s) => s.decrypterChoices);
 
   const [schedule, setSchedule]   = useState<PlanSchedule | null>(null);
   const [loading, setLoading]     = useState(false);
@@ -55,7 +56,7 @@ export function ScheduleView() {
     setLoading(true);
     setError(null);
     setStale(false);
-    const request = buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, effectiveMult);
+    const request = buildSolveRequest(targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, decrypterChoices, effectiveMult);
     // Pass current slot state to backend; we'll re-derive client-side from per-job data anyway.
     computeSchedule(request, industrySlots, scienceSlots)
       .then((s) => {
@@ -68,12 +69,15 @@ export function ScheduleView() {
       .finally(() => setLoading(false));
   }
 
-  // Auto-fetch when view mounts or when targets change after initial load.
+  // Auto-fetch when view mounts, or mark stale when targets or any input that
+  // feeds the solve request (decrypter choices, overrides, profiles, blacklist)
+  // change after initial load — otherwise the displayed schedule silently goes
+  // out of sync with those settings.
   useEffect(() => {
     if (schedule) { setStale(true); return; }
     fetch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targets]);
+  }, [targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, decrypterChoices]);
 
   useEffect(() => {
     if (!schedule) fetch();

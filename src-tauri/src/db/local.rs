@@ -20,7 +20,7 @@ use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::types::{BuildTarget, Decision, StructureProfile, TypeId};
+use crate::types::{BpcStockEntry, BuildTarget, Decision, StructureProfile, TypeId};
 
 // ─── Error ────────────────────────────────────────────────────────────────────
 
@@ -163,6 +163,7 @@ pub const SETTING_DEVICE_ID: &str = "device_id";
 pub const SETTING_RESTOCK_MARGIN: &str = "restock_margin_threshold";
 pub const SETTING_DEFAULT_MULTIPLIER: &str = "default_overproduction_multiplier";
 pub const SETTING_DEFAULT_FREIGHT_ISK_PER_M3: &str = "default_freight_isk_per_m3";
+pub const SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME: &str = "optimize_decrypters_for_time";
 
 // ─── LocalDb ─────────────────────────────────────────────────────────────────
 
@@ -244,7 +245,6 @@ impl LocalDb {
             "ALTER TABLE characters ADD COLUMN has_corp_access INTEGER NOT NULL DEFAULT 0",
             [],
         );
-
         self.conn()?.execute_batch(
             "
             BEGIN;
@@ -257,6 +257,14 @@ impl LocalDb {
                 type_id    INTEGER PRIMARY KEY,
                 quantity   INTEGER NOT NULL DEFAULT 0,
                 updated_at TEXT    NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS bpc_inventory (
+                type_id        INTEGER PRIMARY KEY,
+                me_level       INTEGER NOT NULL,
+                te_level       INTEGER NOT NULL,
+                runs_remaining INTEGER NOT NULL DEFAULT 0,
+                updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
             );
 
             CREATE TABLE IF NOT EXISTS structure_profiles (
@@ -278,6 +286,11 @@ impl LocalDb {
 
             CREATE TABLE IF NOT EXISTS blacklist (
                 type_id INTEGER PRIMARY KEY
+            );
+
+            CREATE TABLE IF NOT EXISTS decrypter_choices (
+                type_id           INTEGER PRIMARY KEY,
+                decrypter_type_id INTEGER NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS esi_cache_timestamps (
@@ -582,6 +595,57 @@ impl LocalDb {
     }
 }
 
+// ─── BPC inventory ────────────────────────────────────────────────────────────
+
+impl LocalDb {
+    pub fn get_bpc_inventory(&self) -> LocalResult<HashMap<TypeId, BpcStockEntry>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare_cached(
+            "SELECT type_id, me_level, te_level, runs_remaining
+             FROM bpc_inventory WHERE runs_remaining > 0",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, TypeId>(0)?,
+                BpcStockEntry {
+                    me_level: r.get(1)?,
+                    te_level: r.get(2)?,
+                    runs_remaining: r.get(3)?,
+                },
+            ))
+        })?;
+        rows.collect::<Result<HashMap<_, _>, _>>().map_err(Into::into)
+    }
+
+    /// Upsert a BPC stock entry. Setting `runs_remaining` to `0` removes the row.
+    pub fn set_bpc_stock(
+        &self,
+        type_id: TypeId,
+        me_level: u8,
+        te_level: u8,
+        runs_remaining: u64,
+    ) -> LocalResult<()> {
+        if runs_remaining == 0 {
+            self.conn()?.execute(
+                "DELETE FROM bpc_inventory WHERE type_id = ?1",
+                [type_id],
+            )?;
+        } else {
+            self.conn()?.execute(
+                "INSERT INTO bpc_inventory (type_id, me_level, te_level, runs_remaining, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, datetime('now'))
+                 ON CONFLICT(type_id) DO UPDATE
+                 SET me_level = excluded.me_level,
+                     te_level = excluded.te_level,
+                     runs_remaining = excluded.runs_remaining,
+                     updated_at = excluded.updated_at",
+                rusqlite::params![type_id, me_level, te_level, runs_remaining],
+            )?;
+        }
+        Ok(())
+    }
+}
+
 // ─── Structure profiles ───────────────────────────────────────────────────────
 
 impl LocalDb {
@@ -710,6 +774,38 @@ impl LocalDb {
     pub fn clear_manual_decision(&self, type_id: TypeId) -> LocalResult<()> {
         self.conn()?.execute(
             "DELETE FROM manual_decisions WHERE type_id = ?1",
+            [type_id],
+        )?;
+        Ok(())
+    }
+}
+
+// ─── Decrypter choices ────────────────────────────────────────────────────────
+
+impl LocalDb {
+    pub fn get_decrypter_choices(&self) -> LocalResult<HashMap<TypeId, TypeId>> {
+        let conn = self.conn()?;
+        let mut stmt =
+            conn.prepare_cached("SELECT type_id, decrypter_type_id FROM decrypter_choices")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, TypeId>(0)?, r.get::<_, TypeId>(1)?))
+        })?;
+        rows.collect::<Result<HashMap<_, _>, _>>().map_err(Into::into)
+    }
+
+    pub fn set_decrypter_choice(&self, type_id: TypeId, decrypter_type_id: TypeId) -> LocalResult<()> {
+        self.conn()?.execute(
+            "INSERT INTO decrypter_choices (type_id, decrypter_type_id)
+             VALUES (?1, ?2)
+             ON CONFLICT(type_id) DO UPDATE SET decrypter_type_id = excluded.decrypter_type_id",
+            rusqlite::params![type_id, decrypter_type_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_decrypter_choice(&self, type_id: TypeId) -> LocalResult<()> {
+        self.conn()?.execute(
+            "DELETE FROM decrypter_choices WHERE type_id = ?1",
             [type_id],
         )?;
         Ok(())

@@ -46,3 +46,16 @@ export async function getDefaultFreightIskPerM3(): Promise<number> {
 export async function setDefaultFreightIskPerM3(iskPerM3: number): Promise<void> {
   return invoke("set_default_freight_isk_per_m3", { iskPerM3 });
 }
+
+/**
+ * Whether the decrypter auto-pick optimizes for job time instead of ISK cost.
+ * `false` (default) = minimize total ISK cost (invention spend + downstream
+ * material cost from ME). `true` = minimize total job time instead.
+ * Has no effect on an explicit per-item decrypter override.
+ */
+export async function getOptimizeDecryptersForTime(): Promise<boolean> {
+  return invoke<boolean>("get_optimize_decrypters_for_time");
+}
+export async function setOptimizeDecryptersForTime(enabled: boolean): Promise<void> {
+  return invoke("set_optimize_decrypters_for_time", { enabled });
+}

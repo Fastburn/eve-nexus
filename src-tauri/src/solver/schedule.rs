@@ -127,7 +127,7 @@ fn collect_jobs(
 /// `base × (1 − te/100) × (1 − 0.04 × ind) × (1 − 0.03 × adv_ind) × (1 − rig_te)`
 ///
 /// Minimum is 1 second.
-fn effective_mfg_time(
+pub(super) fn effective_mfg_time(
     type_id: TypeId,
     te: u8,
     structure_profile_id: Option<&str>,
