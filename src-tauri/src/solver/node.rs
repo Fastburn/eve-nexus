@@ -78,18 +78,19 @@ pub fn buy_node(
     quantity_needed: u64,
     state: &mut SolverState,
 ) -> BuildNode {
-    let (on_hand, consumed_assets) = read_and_consume(&mut state.available_assets, type_id, quantity_needed);
+    let on_hand = consume_stock(&mut state.available_assets, type_id, quantity_needed);
     let in_progress = consume_stock(
         &mut state.available_jobs,
         type_id,
-        quantity_needed.saturating_sub(consumed_assets),
+        quantity_needed.saturating_sub(on_hand),
     );
     let from_hangar = consume_stock(
         &mut state.available_hangar,
         type_id,
-        quantity_needed.saturating_sub(consumed_assets + in_progress),
+        quantity_needed.saturating_sub(on_hand + in_progress),
     );
-    // on_hand is actual inventory; saturating_sub handles the case where it exceeds need.
+    // on_hand is capped to this node's need, so remaining stock stays available
+    // for sibling nodes needing the same type elsewhere in the plan.
     let to_buy = quantity_needed.saturating_sub(on_hand + in_progress + from_hangar);
 
     BuildNode {
@@ -130,7 +131,6 @@ fn build_industry_node(
     let category_id = summary.category_id;
 
     // ── ME / rig bonus ────────────────────────────────────────────────────────
-    let me_level = state.input.me_levels.get(&type_id).copied().unwrap_or(10);
     let rig_me = structure_profile_id
         .and_then(|id| state.input.structure_profiles.get(id))
         .map(|p| cost::get_rig_me(p, category_id))
@@ -147,7 +147,7 @@ fn build_industry_node(
         // Do NOT consume from the maps; effective_need is always the full quantity.
         (oh, ip, fh, quantity_needed)
     } else {
-        let (oh_actual, oh_consumed) = read_and_consume(&mut state.available_assets, type_id, quantity_needed);
+        let oh_consumed = consume_stock(&mut state.available_assets, type_id, quantity_needed);
         let ip = consume_stock(
             &mut state.available_jobs,
             type_id,
@@ -158,9 +158,8 @@ fn build_industry_node(
             type_id,
             quantity_needed.saturating_sub(oh_consumed + ip),
         );
-        // effective_need uses consumed (not actual) so runs are calculated correctly.
         let en = quantity_needed.saturating_sub(oh_consumed + ip + fh);
-        (oh_actual, ip, fh, en)
+        (oh_consumed, ip, fh, en)
     };
 
     // ── Batch / run math ──────────────────────────────────────────────────────
@@ -177,26 +176,62 @@ fn build_industry_node(
         *state.available_hangar.entry(type_id).or_insert(0) += quantity_to_hangar;
     }
 
+    // ── Invention resolution (T2/T3 items) ────────────────────────────────────
+    // Must happen before material recursion: an invented BPC's ME/TE is fixed
+    // at invention time (base + decrypter modifier) and is NOT the user's
+    // global blueprint research level, which only applies to owned BPOs.
+    let mut invention_node = None;
+    let (me_level, te_level) = if let Some(inv_bp) = &bp.invention {
+        let stock_me_te = state
+            .input
+            .bpc_inventory
+            .get(&type_id)
+            .map(|e| (e.me_level, e.te_level));
+        let stock_covered =
+            consume_stock(&mut state.available_bpc_runs, type_id, runs as u64) as u32;
+        let remaining_runs = runs - stock_covered;
+
+        if remaining_runs == 0 {
+            stock_me_te.unwrap_or((10, 20))
+        } else {
+            let decrypter_choice = state.input.decrypter_choices.get(&type_id).copied();
+            let (node, eff_me, eff_te) = invention::solve_invention_node(
+                inv_bp,
+                remaining_runs,
+                summary,
+                decrypter_choice,
+                &bp.materials,
+                rig_me,
+                structure_profile_id,
+                depth + 1,
+                state,
+                stock_covered as u64,
+            );
+            invention_node = Some(node);
+            (eff_me, eff_te)
+        }
+    } else {
+        (
+            state.input.me_levels.get(&type_id).copied().unwrap_or(10),
+            state.input.te_levels.get(&type_id).copied().unwrap_or(20),
+        )
+    };
+
     // ── Recurse into materials ────────────────────────────────────────────────
     state.seen.insert(type_id);
     let inputs = build_inputs(bp, runs, me_level, rig_me, depth, structure_profile_id, state);
     state.seen.remove(&type_id);
 
-    // ── Invention node (T2 items) ─────────────────────────────────────────────
     let mut all_inputs = inputs;
-    if let Some(inv_bp) = &bp.invention {
-        // How many BPCs we need: each covers inv_bp.output_runs manufacturing runs.
-        let bpcs_needed = runs_needed(runs as u64, inv_bp.output_runs as u64);
-        let invention_node =
-            invention::solve_invention_node(inv_bp, bpcs_needed, summary, depth + 1, state);
-        all_inputs.push(invention_node);
+    if let Some(node) = invention_node {
+        all_inputs.push(node);
     }
 
     // ── Build node kind ───────────────────────────────────────────────────────
     let kind = match bp.activity {
         ActivityId::Manufacturing => NodeKind::Manufacturing {
             me: me_level,
-            te: state.input.te_levels.get(&type_id).copied().unwrap_or(20),
+            te: te_level,
             max_runs: if bp.max_production_limit == 0 {
                 None
             } else {
@@ -205,7 +240,7 @@ fn build_industry_node(
             structure_profile_id: structure_profile_id.map(str::to_string),
         },
         ActivityId::Reaction => NodeKind::Reaction {
-            te: state.input.te_levels.get(&type_id).copied().unwrap_or(20),
+            te: te_level,
             structure_profile_id: structure_profile_id.map(str::to_string),
         },
         _ => NodeKind::Buy, // fallback; shouldn't occur for well-formed SDE data
@@ -268,24 +303,11 @@ fn build_inputs(
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /// `ceil(quantity / output_per_run)` — how many runs to satisfy a quantity need.
-fn runs_needed(quantity: u64, output_per_run: u64) -> u32 {
+pub(super) fn runs_needed(quantity: u64, output_per_run: u64) -> u32 {
     if output_per_run == 0 {
         return 0;
     }
     (quantity.saturating_add(output_per_run - 1) / output_per_run).min(u32::MAX as u64) as u32
-}
-
-/// Read the actual available quantity for display, then consume up to `limit`.
-/// Returns `(actual_available, consumed)`.
-/// Use `actual_available` in the BuildNode's `quantity_on_hand` so the grid
-/// shows real inventory rather than the amount that was merely applied to this node.
-fn read_and_consume(stock: &mut HashMap<TypeId, u64>, type_id: TypeId, limit: u64) -> (u64, u64) {
-    let actual = stock.get(&type_id).copied().unwrap_or(0);
-    let consumed = actual.min(limit);
-    if consumed > 0 {
-        *stock.entry(type_id).or_insert(0) -= consumed;
-    }
-    (actual, consumed)
 }
 
 /// Consume up to `limit` units from a mutable stock map.

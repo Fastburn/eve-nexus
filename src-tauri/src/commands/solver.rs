@@ -37,6 +37,8 @@ pub struct SolvePlanRequest {
     #[serde(default)]
     pub manual_decisions: HashMap<TypeId, Decision>,
     #[serde(default)]
+    pub decrypter_choices: HashMap<TypeId, TypeId>,
+    #[serde(default)]
     pub blacklist: Vec<TypeId>,
 }
 
@@ -70,9 +72,11 @@ pub(super) fn assemble_solver_input(
 
     // ── Local DB ─────────────────────────────────────────────────────────────
     let virtual_hangar = local.get_virtual_hangar()?;
+    let bpc_inventory = local.get_bpc_inventory()?;
     let structure_profiles = local.get_structure_profiles()?;
     let (me_levels_db, te_levels_db) = local.get_blueprint_overrides()?;
     let manual_decisions_db = local.get_manual_decisions()?;
+    let decrypter_choices_db = local.get_decrypter_choices()?;
     let blacklist_db = local.get_blacklist()?;
 
     // Reverse map: blueprint item type ID → product type ID.
@@ -106,11 +110,32 @@ pub(super) fn assemble_solver_input(
     let mut manual_decisions = manual_decisions_db;
     manual_decisions.extend(request.manual_decisions);
 
+    let mut decrypter_choices = decrypter_choices_db;
+    decrypter_choices.extend(request.decrypter_choices);
+
+    let optimize_decrypters_for_time = local
+        .get_setting(crate::db::local::SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME)
+        .unwrap_or_default()
+        .as_deref()
+        == Some("true");
+
     let mut blacklist = blacklist_db;
     blacklist.extend(request.blacklist.iter().copied());
 
     let mut profiles = structure_profiles;
     profiles.extend(request.structure_profiles);
+
+    let category_ids_by_name: std::collections::HashMap<String, i32> = sde_db
+        .get_industry_categories()?
+        .into_iter()
+        .map(|c| (c.category_name, c.category_id))
+        .collect();
+    for profile in profiles.values_mut() {
+        if !profile.installed_rigs.is_empty() {
+            profile.rig_bonuses =
+                solver::rigs::expand_installed_rigs(&profile.installed_rigs, &category_ids_by_name);
+        }
+    }
 
     // ── ESI cached data (best-effort — empty maps if never fetched) ─────────
     let characters = local.get_characters().unwrap_or_default();
@@ -151,8 +176,11 @@ pub(super) fn assemble_solver_input(
         adjusted_prices,
         cost_indices,
         virtual_hangar,
+        bpc_inventory,
         structure_profiles: profiles,
         manual_decisions,
+        decrypter_choices,
+        optimize_decrypters_for_time,
         blacklist,
         type_summaries,
         blueprints,
