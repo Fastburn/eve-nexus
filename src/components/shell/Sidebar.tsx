@@ -27,13 +27,14 @@ export function Sidebar() {
 
   const profiles     = useSettingsStore((s) => s.structureProfiles);
 
-  // When there is exactly one profile, back-fill any targets that have none.
-  // Depends on both profiles and targets so opening a saved plan (which reloads
-  // targets from DB) also triggers the fill, not just the initial profile load.
-  // Auto-saves afterwards so the assignment persists across restarts.
+  // Back-fill any targets that have no structure profile with a sensible
+  // default (see `defaultProfileId`). Depends on both profiles and targets so
+  // opening a saved plan (which reloads targets from DB) also triggers the
+  // fill, not just the initial profile load. Auto-saves afterwards so the
+  // assignment persists across restarts.
   useEffect(() => {
-    if (profiles.length !== 1) return;
-    const pid = profiles[0].id;
+    const pid = defaultProfileId();
+    if (pid === null) return;
     const unassigned = targets.filter((t) => !t.structureProfileId);
     if (unassigned.length === 0) return;
     unassigned.forEach((t) => updateTarget(t.typeId, { structureProfileId: pid }));
@@ -104,8 +105,15 @@ export function Sidebar() {
     setRenamingId(null);
   }
 
+  // A build target's root node is always a Manufacturing job (even T2/T3
+  // items are manufactured at the top level — invention is just how their
+  // BPC gets sourced), so a single configured Manufacturing profile is a safe
+  // default. The solver auto-resolves the right profile for Reaction/Invention
+  // sub-nodes elsewhere in the tree on its own, matched by job type.
   function defaultProfileId(): string | null {
-    return profiles.length === 1 ? profiles[0].id : null;
+    if (profiles.length === 1) return profiles[0].id;
+    const mfg = profiles.filter((p) => p.jobType === "Manufacturing");
+    return mfg.length === 1 ? mfg[0].id : null;
   }
 
   function handlePickType(type: TypeSummary) {

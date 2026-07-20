@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use crate::types::{ActivityId, RigBonus, SolarSystemId, StructureProfile, TypeId, SolverInput};
+use crate::types::{ActivityId, JobType, RigBonus, SolarSystemId, StructureProfile, TypeId, SolverInput};
 
 // ─── ME / TE math ─────────────────────────────────────────────────────────────
 
@@ -43,6 +43,41 @@ pub fn get_rig_te(profile: &StructureProfile, category_id: i32) -> f64 {
 
 fn matching_rig(rigs: &[RigBonus], category_id: i32) -> Option<&RigBonus> {
     rigs.iter().find(|r| r.category_id == category_id)
+}
+
+// ─── Profile resolution ───────────────────────────────────────────────────────
+
+/// Resolve which structure profile actually applies to a node of a given
+/// `job_type`.
+///
+/// A user's build tree typically spans multiple activities (e.g. a Manufacturing
+/// target that reacts its own materials and invents its own BPCs), but only one
+/// profile is ever assigned at the target level and blindly inherited by every
+/// descendant node regardless of that node's own activity. This resolves the
+/// correct profile per node instead:
+///
+/// - If the inherited `preferred` profile already matches `job_type`, use it.
+/// - Otherwise, search all configured profiles for the job type: if exactly
+///   one matches, use it (the common case — one profile per activity). If
+///   zero or more than one match, there's no unambiguous choice, so return
+///   `None` rather than guessing.
+#[must_use]
+pub fn resolve_profile_id<'a>(
+    preferred: Option<&'a str>,
+    job_type: JobType,
+    profiles: &'a HashMap<String, StructureProfile>,
+) -> Option<&'a str> {
+    if let Some(id) = preferred {
+        if profiles.get(id).map(|p| p.job_type) == Some(job_type) {
+            return Some(id);
+        }
+    }
+    let mut matches = profiles.iter().filter(|(_, p)| p.job_type == job_type);
+    let first = matches.next()?;
+    if matches.next().is_some() {
+        return None; // ambiguous — more than one profile for this job type
+    }
+    Some(first.0.as_str())
 }
 
 // ─── EIV ──────────────────────────────────────────────────────────────────────

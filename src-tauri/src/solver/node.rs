@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use crate::types::{
-    ActivityId, BlueprintData, BuildNode, Decision, NodeKind, TypeId, TypeSummary,
+    ActivityId, BlueprintData, BuildNode, Decision, JobType, NodeKind, TypeId, TypeSummary,
 };
 
 use super::{cost, invention, SolverState};
@@ -130,8 +130,21 @@ fn build_industry_node(
     let bp = &input.blueprints[&type_id];
     let category_id = summary.category_id;
 
+    // ── Structure profile resolution ──────────────────────────────────────────
+    // `structure_profile_id` is inherited unchanged from the target/parent, but
+    // a build tree typically spans multiple activities (e.g. a Manufacturing
+    // target that reacts its own materials or invents its own BPCs). Resolve
+    // the profile that actually matches *this* node's activity rather than
+    // blindly trusting the inherited one.
+    let node_job_type = match bp.activity {
+        ActivityId::Reaction => JobType::Reaction,
+        _ => JobType::Manufacturing,
+    };
+    let resolved_profile_id =
+        cost::resolve_profile_id(structure_profile_id, node_job_type, &state.input.structure_profiles);
+
     // ── ME / rig bonus ────────────────────────────────────────────────────────
-    let rig_me = structure_profile_id
+    let rig_me = resolved_profile_id
         .and_then(|id| state.input.structure_profiles.get(id))
         .map(|p| cost::get_rig_me(p, category_id))
         .unwrap_or(0.0);
@@ -195,6 +208,9 @@ fn build_industry_node(
             stock_me_te.unwrap_or((10, 20))
         } else {
             let decrypter_choice = state.input.decrypter_choices.get(&type_id).copied();
+            // `resolved_profile_id` (Manufacturing) is what downstream mfg-time
+            // math inside invention needs — the invented product's own job runs
+            // on the Manufacturing structure, not the Invention one.
             let (node, eff_me, eff_te) = invention::solve_invention_node(
                 inv_bp,
                 remaining_runs,
@@ -202,7 +218,7 @@ fn build_industry_node(
                 decrypter_choice,
                 &bp.materials,
                 rig_me,
-                structure_profile_id,
+                resolved_profile_id,
                 depth + 1,
                 state,
                 stock_covered as u64,
@@ -237,17 +253,17 @@ fn build_industry_node(
             } else {
                 Some(bp.max_production_limit)
             },
-            structure_profile_id: structure_profile_id.map(str::to_string),
+            structure_profile_id: resolved_profile_id.map(str::to_string),
         },
         ActivityId::Reaction => NodeKind::Reaction {
             te: te_level,
-            structure_profile_id: structure_profile_id.map(str::to_string),
+            structure_profile_id: resolved_profile_id.map(str::to_string),
         },
         _ => NodeKind::Buy, // fallback; shouldn't occur for well-formed SDE data
     };
 
     // ── Job cost ──────────────────────────────────────────────────────────────
-    let system_id = structure_profile_id
+    let system_id = resolved_profile_id
         .and_then(|id| state.input.structure_profiles.get(id))
         .and_then(|p| p.solar_system_id);
 
@@ -258,7 +274,7 @@ fn build_industry_node(
         .map(|n| (n.type_id, n.quantity_needed))
         .collect();
     let eiv_value = cost::eiv(&mat_totals, &state.input.adjusted_prices);
-    let job_cost = cost::job_cost(eiv_value, bp.activity, system_id, structure_profile_id, state.input);
+    let job_cost = cost::job_cost(eiv_value, bp.activity, system_id, resolved_profile_id, state.input);
 
     BuildNode {
         type_id,

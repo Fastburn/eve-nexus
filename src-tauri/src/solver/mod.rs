@@ -20,7 +20,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::types::{BuildNode, SolverInput, TypeId};
 
-pub use cost::{apply_me, get_rig_me, get_rig_te};
+pub use cost::{apply_me, get_rig_me, get_rig_te, resolve_profile_id};
 pub use decrypters::DecrypterSpec;
 pub use rigs::RigSpec;
 pub use schedule::compute_schedule;
@@ -119,7 +119,7 @@ mod tests {
     };
 
     use super::{
-        cost::{apply_me, eiv, get_rig_me, get_rig_te, job_cost},
+        cost::{apply_me, eiv, get_rig_me, get_rig_te, job_cost, resolve_profile_id},
         decrypters::DECRYPTERS,
         invention::{attempts_needed, calculate_probability, solve_invention_node},
         solve, SolverState,
@@ -277,6 +277,62 @@ mod tests {
     fn job_cost_no_system_returns_none() {
         let input = empty_input(vec![]);
         assert!(job_cost(1000.0, ActivityId::Manufacturing, None, None, &input).is_none());
+    }
+
+    // ── structure profile resolution ──────────────────────────────────────────
+
+    fn profile(job_type: crate::types::JobType) -> StructureProfile {
+        StructureProfile {
+            id: "unused".to_string(),
+            label: "Unused".to_string(),
+            solar_system_id: None,
+            job_type,
+            facility_tax: 0.10,
+            space_modifier: 1.0,
+            rig_bonuses: vec![],
+            installed_rigs: vec![],
+        }
+    }
+
+    #[test]
+    fn resolve_profile_preferred_matches_job_type() {
+        use crate::types::JobType;
+        let mut profiles = HashMap::new();
+        profiles.insert("mfg".to_string(), profile(JobType::Manufacturing));
+        let resolved = resolve_profile_id(Some("mfg"), JobType::Manufacturing, &profiles);
+        assert_eq!(resolved, Some("mfg"));
+    }
+
+    #[test]
+    fn resolve_profile_falls_back_to_unambiguous_match() {
+        use crate::types::JobType;
+        let mut profiles = HashMap::new();
+        profiles.insert("mfg".to_string(), profile(JobType::Manufacturing));
+        profiles.insert("react".to_string(), profile(JobType::Reaction));
+        // The inherited target profile is Manufacturing, but this node is a
+        // Reaction — should auto-resolve to the one Reaction profile instead.
+        let resolved = resolve_profile_id(Some("mfg"), JobType::Reaction, &profiles);
+        assert_eq!(resolved, Some("react"));
+    }
+
+    #[test]
+    fn resolve_profile_ambiguous_returns_none() {
+        use crate::types::JobType;
+        let mut profiles = HashMap::new();
+        profiles.insert("mfg1".to_string(), profile(JobType::Manufacturing));
+        profiles.insert("mfg2".to_string(), profile(JobType::Manufacturing));
+        // Two Manufacturing profiles, no preferred one matches — can't guess.
+        let resolved = resolve_profile_id(None, JobType::Manufacturing, &profiles);
+        assert_eq!(resolved, None);
+    }
+
+    #[test]
+    fn resolve_profile_no_match_returns_none() {
+        use crate::types::JobType;
+        let mut profiles = HashMap::new();
+        profiles.insert("mfg".to_string(), profile(JobType::Manufacturing));
+        let resolved = resolve_profile_id(None, JobType::Invention, &profiles);
+        assert_eq!(resolved, None);
     }
 
     // ── invention probability ─────────────────────────────────────────────────
@@ -718,6 +774,88 @@ mod tests {
         let mat = root.inputs.iter().find(|n| n.type_id == 310).unwrap();
         // ME2: floor(100 × 1 run × 0.98) = 98 (vs. 90 if the ME10 default leaked in).
         assert_eq!(mat.quantity_needed, 98);
+    }
+
+    // ── per-node structure profile auto-resolution ────────────────────────────
+
+    #[test]
+    fn solve_reaction_submaterial_auto_resolves_reaction_profile() {
+        // Mirrors a real beta report: a Manufacturing target assigned to one
+        // profile, whose materials are built via a Reaction blueprint that has
+        // its own dedicated (but never manually assigned) structure profile.
+        // Before this fix, the Reaction node blindly inherited the Manufacturing
+        // profile's id, found no matching profile, and reported a null job
+        // cost. It should now auto-resolve to the one configured Reaction
+        // profile and get a real job cost.
+        let mut input = empty_input(vec![BuildTarget {
+            type_id: 200,
+            quantity: 1,
+            structure_profile_id: Some("mfg".to_string()),
+        }]);
+        input.type_summaries.insert(200, simple_summary(200, "T2 Widget"));
+        input.type_summaries.insert(201, simple_summary(201, "Fuel Block"));
+        input.blueprints.insert(200, simple_blueprint(200, vec![(201, 5)]));
+        input.blueprints.insert(
+            201,
+            BlueprintData {
+                blueprint_type_id: 1201,
+                activity: ActivityId::Reaction,
+                max_production_limit: 0,
+                output_quantity: 1,
+                time_seconds: 300,
+                materials: vec![],
+                invention: None,
+            },
+        );
+
+        input.structure_profiles.insert(
+            "mfg".to_string(),
+            StructureProfile {
+                id: "mfg".to_string(),
+                label: "Equipment T2".to_string(),
+                solar_system_id: Some(30000142),
+                job_type: crate::types::JobType::Manufacturing,
+                facility_tax: 0.005,
+                space_modifier: 1.0,
+                rig_bonuses: vec![],
+                installed_rigs: vec![],
+            },
+        );
+        input.structure_profiles.insert(
+            "react".to_string(),
+            StructureProfile {
+                id: "react".to_string(),
+                label: "T2 Reprocessing".to_string(),
+                solar_system_id: Some(30000144),
+                job_type: crate::types::JobType::Reaction,
+                facility_tax: 0.005,
+                space_modifier: 1.0,
+                rig_bonuses: vec![],
+                installed_rigs: vec![],
+            },
+        );
+        input.cost_indices.insert(
+            30000142,
+            CostIndex { solar_system_id: 30000142, manufacturing: 0.05, reaction: 0.0, invention: 0.0 },
+        );
+        input.cost_indices.insert(
+            30000144,
+            CostIndex { solar_system_id: 30000144, manufacturing: 0.0, reaction: 0.02, invention: 0.0 },
+        );
+
+        let nodes = solve(&input);
+        let root = &nodes[0];
+        assert!(root.job_cost.is_some(), "root manufacturing job cost should resolve via the assigned profile");
+
+        let reaction_node = root.inputs.iter().find(|n| n.type_id == 201).unwrap();
+        assert!(matches!(reaction_node.kind, NodeKind::Reaction { .. }));
+        assert!(
+            reaction_node.job_cost.is_some(),
+            "reaction sub-node should auto-resolve the dedicated Reaction profile instead of inheriting the Manufacturing one"
+        );
+        if let NodeKind::Reaction { structure_profile_id, .. } = &reaction_node.kind {
+            assert_eq!(structure_profile_id.as_deref(), Some("react"));
+        }
     }
 
     // ── BPC inventory ─────────────────────────────────────────────────────────
