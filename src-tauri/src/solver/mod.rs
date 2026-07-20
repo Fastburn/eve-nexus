@@ -166,7 +166,7 @@ mod tests {
     }
 
     fn target(type_id: TypeId, quantity: u64) -> BuildTarget {
-        BuildTarget { type_id, quantity, structure_profile_id: None }
+        BuildTarget { type_id, quantity, structure_profile_id: None, stock_target_type_id: None }
     }
 
     // ── apply_me ──────────────────────────────────────────────────────────────
@@ -791,6 +791,7 @@ mod tests {
             type_id: 200,
             quantity: 1,
             structure_profile_id: Some("mfg".to_string()),
+            stock_target_type_id: None,
         }]);
         input.type_summaries.insert(200, simple_summary(200, "T2 Widget"));
         input.type_summaries.insert(201, simple_summary(201, "Fuel Block"));

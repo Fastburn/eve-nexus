@@ -9,7 +9,7 @@ use tauri::{AppHandle, State};
 use crate::db::local::{
     AnalyticsConsent, LocalState,
     SETTING_WIZARD_COMPLETED,
-    SETTING_DEFAULT_MULTIPLIER, SETTING_DEFAULT_FREIGHT_ISK_PER_M3,
+    SETTING_DEFAULT_MULTIPLIER, SETTING_DEFAULT_FREIGHT_ISK_PER_M3, SETTING_DEFAULT_OVERBUILD_PCT,
     SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME,
 };
 use super::CommandError;
@@ -92,6 +92,28 @@ pub fn set_default_freight_isk_per_m3(
     local: State<'_, LocalState>,
 ) -> Result<(), CommandError> {
     local.0.set_setting(SETTING_DEFAULT_FREIGHT_ISK_PER_M3, &isk_per_m3.to_string()).map_err(Into::into)
+}
+
+/// Get the global default restock overbuild buffer (0.0 = keep exactly the
+/// target quantity, 0.2 = keep target + 20% on top). Applies to any restock
+/// row that doesn't set its own per-item override.
+#[tauri::command]
+pub fn get_default_overbuild_pct(local: State<'_, LocalState>) -> Result<f64, CommandError> {
+    let v = local.0
+        .get_setting(SETTING_DEFAULT_OVERBUILD_PCT)
+        .map_err(CommandError::from)?
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    Ok(v)
+}
+
+/// Set the global default restock overbuild buffer.
+#[tauri::command]
+pub fn set_default_overbuild_pct(
+    pct: f64,
+    local: State<'_, LocalState>,
+) -> Result<(), CommandError> {
+    local.0.set_setting(SETTING_DEFAULT_OVERBUILD_PCT, &pct.to_string()).map_err(Into::into)
 }
 
 /// Get whether the decrypter auto-pick optimizes for job time instead of ISK

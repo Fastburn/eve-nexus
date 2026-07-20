@@ -112,7 +112,7 @@ export function BlueprintBrowser() {
     const qty = quantities[entry.productTypeId] ?? 1;
     const mfgProfiles = profiles.filter((p) => p.jobType === "Manufacturing");
     const profileId = profiles.length === 1 ? profiles[0].id : mfgProfiles.length === 1 ? mfgProfiles[0].id : null;
-    addTarget({ typeId: entry.productTypeId, quantity: Math.max(1, qty), structureProfileId: profileId });
+    addTarget({ typeId: entry.productTypeId, quantity: Math.max(1, qty), structureProfileId: profileId, stockTargetTypeId: null });
 
     // Flash confirmation.
     if (addedRef.current?.timer) clearTimeout(addedRef.current.timer);

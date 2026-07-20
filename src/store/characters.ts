@@ -41,7 +41,7 @@ function esiErrorMessage(e: unknown): string {
   return String(e);
 }
 
-export const useCharactersStore = create<CharactersState>((set) => ({
+export const useCharactersStore = create<CharactersState>((set, get) => ({
   characters: [],
   loading: false,
   refreshing: false,
@@ -59,7 +59,10 @@ export const useCharactersStore = create<CharactersState>((set) => ({
 
   add: async () => {
     const info = await addCharacter();
-    set((s) => ({ characters: [...s.characters, info] }));
+    set((s) => {
+      const rest = s.characters.filter((c) => c.characterId !== info.characterId);
+      return { characters: [...rest, info] };
+    });
     return info;
   },
 
@@ -74,6 +77,8 @@ export const useCharactersStore = create<CharactersState>((set) => ({
     set({ refreshing: true, error: null });
     try {
       await refreshEsiData(characterId);
+      // Pick up any flags (e.g. hasWalletScope) that changed as a result of the refresh.
+      await get().fetch();
     } catch (e) {
       set({ error: esiErrorMessage(e) });
     } finally {
@@ -85,6 +90,7 @@ export const useCharactersStore = create<CharactersState>((set) => ({
     set({ refreshing: true, error: null });
     try {
       await refreshAllEsiData();
+      await get().fetch();
     } catch (e) {
       set({ error: esiErrorMessage(e) });
     } finally {

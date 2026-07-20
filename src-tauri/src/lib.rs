@@ -177,6 +177,8 @@ pub fn run() {
             commands::delete_restock_target,
             commands::get_restock_margin,
             commands::set_restock_margin,
+            commands::get_default_overbuild_pct,
+            commands::set_default_overbuild_pct,
             commands::get_optimize_decrypters_for_time,
             commands::set_optimize_decrypters_for_time,
             commands::get_default_overproduction_multiplier,

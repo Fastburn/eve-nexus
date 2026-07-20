@@ -363,20 +363,29 @@ pub async fn get_asset_structures(
 
 // ─── Restock planner ──────────────────────────────────────────────────────────
 
-/// One row in the restock view — target + current market position.
+/// One row in the restock view — target + current market/stock position.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestockRow {
     pub type_id:          TypeId,
     pub type_name:        String,
     pub target_qty:       u64,
-    pub current_sell_qty: u64,
-    /// max(0, target_qty - current_sell_qty)
+    /// `None` means this row uses the global default overbuild buffer.
+    pub overbuild_pct:    Option<f64>,
+    pub on_market_qty:    u64,
+    /// ESI assets + virtual hangar, summed across all characters.
+    pub real_stock_qty:   u64,
+    /// Units sold in the last 30 days. `None` if no character has a confirmed
+    /// wallet-read scope, so the UI can distinguish "no sales" from "unknown."
+    pub sell_velocity:    Option<u64>,
+    /// Display-only hint derived from velocity; never stored.
+    pub suggested_target: Option<u64>,
+    /// max(0, ceil(target_qty * (1 + effective_overbuild_pct)) - real_stock_qty)
     pub deficit:          u64,
 }
 
 /// Fetch (or use cached) market orders for all characters, then return one
-/// row per restock target with current sell quantities and deficits.
+/// row per restock target with real stock, sell velocity, and deficits.
 #[tauri::command]
 pub async fn get_restock_rows(
     local: State<'_, LocalState>,
@@ -395,10 +404,32 @@ pub async fn get_restock_rows(
 
     let sell_qty = local.0.get_sell_quantities().map_err(CommandError::from)?;
 
+    let mut real_stock: HashMap<TypeId, u64> = local.0.get_virtual_hangar().unwrap_or_default();
+    for (char_id, _) in &characters {
+        for (type_id, qty) in local.0.get_assets(*char_id).unwrap_or_default() {
+            *real_stock.entry(type_id).or_insert(0) += qty;
+        }
+    }
+
+    let any_wallet_scope = characters
+        .iter()
+        .any(|(char_id, _)| local.0.get_wallet_scope(*char_id).unwrap_or(false));
+    let velocity = if any_wallet_scope {
+        local.0.get_sell_velocity(chrono::Utc::now() - chrono::Duration::days(30)).unwrap_or_default()
+    } else {
+        HashMap::new()
+    };
+
+    let default_overbuild = local.0
+        .get_setting(db::local::SETTING_DEFAULT_OVERBUILD_PCT)
+        .map_err(CommandError::from)?
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
     let sde_guard = sde.0.lock().map_err(|_| CommandError::SdeNotAvailable)?;
 
     let mut rows = Vec::with_capacity(targets.len());
-    for (type_id, target_qty) in targets {
+    for (type_id, target_qty, overbuild_pct) in targets {
         let type_name = if let Some(db) = sde_guard.as_ref() {
             db.get_type_info(type_id)
                 .ok()
@@ -409,23 +440,44 @@ pub async fn get_restock_rows(
             String::new()
         };
 
-        let current_sell_qty = *sell_qty.get(&type_id).unwrap_or(&0);
-        let deficit = target_qty.saturating_sub(current_sell_qty);
+        let on_market_qty  = *sell_qty.get(&type_id).unwrap_or(&0);
+        let real_stock_qty = *real_stock.get(&type_id).unwrap_or(&0);
+        let sell_velocity  = if any_wallet_scope {
+            Some(*velocity.get(&type_id).unwrap_or(&0))
+        } else {
+            None
+        };
+        let suggested_target = sell_velocity;
 
-        rows.push(RestockRow { type_id, type_name, target_qty, current_sell_qty, deficit });
+        let effective_pct = overbuild_pct.unwrap_or(default_overbuild);
+        let adjusted = ((target_qty as f64) * (1.0 + effective_pct)).ceil() as u64;
+        let deficit = adjusted.saturating_sub(real_stock_qty);
+
+        rows.push(RestockRow {
+            type_id,
+            type_name,
+            target_qty,
+            overbuild_pct,
+            on_market_qty,
+            real_stock_qty,
+            sell_velocity,
+            suggested_target,
+            deficit,
+        });
     }
 
     Ok(rows)
 }
 
-/// Upsert a restock target (create or update the target quantity).
+/// Upsert a restock target (create or update the target quantity and overbuild override).
 #[tauri::command]
 pub fn save_restock_target(
-    type_id:    TypeId,
-    target_qty: u64,
+    type_id:       TypeId,
+    target_qty:    u64,
+    overbuild_pct: Option<f64>,
     local: State<'_, LocalState>,
 ) -> Result<(), CommandError> {
-    local.0.upsert_restock_target(type_id, target_qty).map_err(Into::into)
+    local.0.upsert_restock_target(type_id, target_qty, overbuild_pct).map_err(Into::into)
 }
 
 /// Remove a restock target.

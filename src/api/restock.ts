@@ -7,7 +7,15 @@ export interface RestockRow {
   typeId: number;
   typeName: string;
   targetQty: number;
-  currentSellQty: number;
+  /** null means this row uses the global default overbuild buffer. */
+  overbuildPct: number | null;
+  onMarketQty: number;
+  /** ESI assets + virtual hangar, summed across all characters. */
+  realStockQty: number;
+  /** Units sold in the last 30 days; null if no character has wallet scope confirmed. */
+  sellVelocity: number | null;
+  /** Display-only hint derived from velocity; never stored. */
+  suggestedTarget: number | null;
   deficit: number;
 }
 
@@ -15,8 +23,12 @@ export async function getRestockRows(): Promise<RestockRow[]> {
   return invoke("get_restock_rows");
 }
 
-export async function saveRestockTarget(typeId: number, targetQty: number): Promise<void> {
-  return invoke("save_restock_target", { typeId, targetQty });
+export async function saveRestockTarget(
+  typeId: number,
+  targetQty: number,
+  overbuildPct: number | null,
+): Promise<void> {
+  return invoke("save_restock_target", { typeId, targetQty, overbuildPct });
 }
 
 export async function deleteRestockTarget(typeId: number): Promise<void> {
@@ -29,4 +41,12 @@ export async function getRestockMargin(): Promise<number> {
 
 export async function setRestockMargin(threshold: number): Promise<void> {
   return invoke("set_restock_margin", { threshold });
+}
+
+export async function getDefaultOverbuildPct(): Promise<number> {
+  return invoke("get_default_overbuild_pct");
+}
+
+export async function setDefaultOverbuildPct(pct: number): Promise<void> {
+  return invoke("set_default_overbuild_pct", { pct });
 }

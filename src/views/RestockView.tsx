@@ -3,9 +3,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMarketStore } from "../store/market";
+import { usePlanStore } from "../store/plan";
 import {
   getRestockRows, saveRestockTarget, deleteRestockTarget,
   getRestockMargin, setRestockMargin,
+  getDefaultOverbuildPct, setDefaultOverbuildPct,
 } from "../api";
 import type { RestockRow } from "../api";
 import { TypePicker } from "../components/common/TypePicker";
@@ -22,6 +24,8 @@ export function RestockView() {
   const [error, setError]             = useState<string | null>(null);
   const [marginPct, setMarginPct]     = useState(10);
   const [marginInput, setMarginInput] = useState("10");
+  const [overbuildPct, setOverbuildPct]   = useState(0);
+  const [overbuildInput, setOverbuildInput] = useState("0");
 
   // Pending add flow
   const [pendingItem, setPendingItem]   = useState<TypeSummary | null>(null);
@@ -31,16 +35,23 @@ export function RestockView() {
   const [editQty, setEditQty]       = useState<Record<number, string>>({});
   const [copyLabel, setCopyLabel]   = useState<"deficit" | "done" | null>(null);
   const copyTimer                   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [addedToPlan, setAddedToPlan] = useState<number | null>(null);
+  const addedTimer                    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const marketPrices  = useMarketStore((s) => s.prices);
   const fetchPrices   = useMarketStore((s) => s.fetchPrices);
   const fetching      = useMarketStore((s) => s.fetching);
+  const addTarget     = usePlanStore((s) => s.addTarget);
 
   useEffect(() => {
     loadData();
     getRestockMargin().then((v) => {
       setMarginPct(v);
       setMarginInput(String(v));
+    });
+    getDefaultOverbuildPct().then((v) => {
+      setOverbuildPct(v * 100);
+      setOverbuildInput(String(v * 100));
     });
   }, []);
 
@@ -84,13 +95,15 @@ export function RestockView() {
   }
 
   function handleExportCsv() {
-    const headers = ["Item", "On Market", "Target", "Deficit", "Best Sell ISK", "Margin %"];
+    const headers = ["Item", "Real Stock", "On Market", "Velocity (30d)", "Target", "Deficit", "Best Sell ISK", "Margin %"];
     const csvRows = rows.map((r) => {
       const sell   = getBestSell(r.typeId);
       const margin = getMarginPctFor(r.typeId);
       return [
         r.typeName || `Type ${r.typeId}`,
-        r.currentSellQty,
+        r.realStockQty,
+        r.onMarketQty,
+        r.sellVelocity ?? null,
         r.targetQty,
         r.deficit > 0 ? r.deficit : null,
         sell ?? null,
@@ -135,6 +148,17 @@ export function RestockView() {
     }
   }
 
+  async function handleOverbuildBlur() {
+    const v = parseFloat(overbuildInput);
+    if (!isNaN(v) && v >= 0) {
+      setOverbuildPct(v);
+      await setDefaultOverbuildPct(v / 100).catch(() => {});
+      await loadData();
+    } else {
+      setOverbuildInput(String(overbuildPct));
+    }
+  }
+
   function handleTypeSelect(type: TypeSummary) {
     // Don't add duplicates
     if (rows.some((r) => r.typeId === type.typeId)) return;
@@ -146,7 +170,7 @@ export function RestockView() {
     if (!pendingItem) return;
     const qty = parseInt(pendingQty, 10);
     if (isNaN(qty) || qty < 1) return;
-    await saveRestockTarget(pendingItem.typeId, qty).catch(() => {});
+    await saveRestockTarget(pendingItem.typeId, qty, null).catch(() => {});
     setPendingItem(null);
     await loadData();
   }
@@ -169,12 +193,40 @@ export function RestockView() {
     if (raw === undefined) return;
     const qty = parseInt(raw, 10);
     if (!isNaN(qty) && qty >= 1) {
-      await saveRestockTarget(typeId, qty).catch(() => {});
-      setRows((prev) => prev.map((r) =>
-        r.typeId === typeId ? { ...r, targetQty: qty, deficit: Math.max(0, qty - r.currentSellQty) } : r
-      ));
+      const row = rows.find((r) => r.typeId === typeId);
+      await saveRestockTarget(typeId, qty, row?.overbuildPct ?? null).catch(() => {});
+      await loadData();
     }
     setEditQty((prev) => { const n = { ...prev }; delete n[typeId]; return n; });
+  }
+
+  async function commitOverbuildPct(typeId: number, raw: string) {
+    const row = rows.find((r) => r.typeId === typeId);
+    if (!row) return;
+    const trimmed = raw.trim();
+    const pct = trimmed === "" ? null : parseFloat(trimmed) / 100;
+    if (pct !== null && (isNaN(pct) || pct < 0)) return;
+    await saveRestockTarget(typeId, row.targetQty, pct).catch(() => {});
+    await loadData();
+  }
+
+  async function handleUseSuggested(typeId: number) {
+    const row = rows.find((r) => r.typeId === typeId);
+    if (!row || row.suggestedTarget == null) return;
+    await saveRestockTarget(typeId, row.suggestedTarget, row.overbuildPct ?? null).catch(() => {});
+    await loadData();
+  }
+
+  function handleAddToPlan(typeId: number, deficit: number) {
+    addTarget({
+      typeId,
+      quantity: deficit,
+      structureProfileId: null,
+      stockTargetTypeId: typeId,
+    });
+    setAddedToPlan(typeId);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAddedToPlan(null), 1500);
   }
 
   if (loading) {
@@ -221,6 +273,21 @@ export function RestockView() {
                 onChange={(e) => setMarginInput(e.target.value)}
                 onBlur={handleMarginBlur}
                 title="Minimum acceptable margin %. Rows below this threshold are highlighted as warnings. Margin = (sell − buy) ÷ sell."
+              />
+              <span className="rst-margin-unit">%</span>
+            </div>
+            <div className="rst-margin-wrap">
+              <label className="rst-margin-label" htmlFor="rst-overbuild">Default overbuild</label>
+              <input
+                id="rst-overbuild"
+                type="number"
+                className="rst-margin-input"
+                value={overbuildInput}
+                min={0}
+                step={5}
+                onChange={(e) => setOverbuildInput(e.target.value)}
+                onBlur={handleOverbuildBlur}
+                title="Extra buffer kept on top of each item's target, as a %. Applies to any row without its own per-item override."
               />
               <span className="rst-margin-unit">%</span>
             </div>
@@ -288,9 +355,12 @@ export function RestockView() {
           <div className="rst-list">
             <div className="rst-list-header">
               <span>Item</span>
+              <span className="rst-col-center" title="ESI assets + virtual hangar, summed across all your characters.">Real stock</span>
               <span className="rst-col-center" title="Active sell orders you currently have listed on market (from last ESI sync).">On market</span>
-              <span className="rst-col-center" title="Your minimum stock level. When On market falls below this, the row is flagged as a deficit. Click the number to edit.">Target</span>
-              <span className="rst-col-center" title="How many units you're short: Target − On market. Only shown when understocked.">Deficit</span>
+              <span className="rst-col-center" title="Units sold across all your characters in the last 30 days. Shows — if no character has re-authenticated to grant wallet access.">Velocity (30d)</span>
+              <span className="rst-col-center" title="Your minimum stock level. When Real stock falls below this (plus overbuild), the row is flagged as a deficit. Click the number to edit.">Target</span>
+              <span className="rst-col-center" title="Extra buffer kept on top of target, as a %. Blank uses the global default (Settings).">Overbuild %</span>
+              <span className="rst-col-center" title="How many units you're short: Target × (1 + overbuild) − Real stock. Only shown when understocked.">Deficit</span>
               <span className="rst-col-right" title="Lowest sell order price across your configured market hubs. This is what buyers pay — your revenue per unit.">Best sell</span>
               <span className="rst-col-right" title="Profit margin: (sell − buy) ÷ sell. Below your minimum threshold the row is highlighted as a warning.">Margin</span>
               <span />
@@ -310,7 +380,28 @@ export function RestockView() {
                 >
                   <span className="rst-row-name" title={row.typeName}>{row.typeName || `Type ${row.typeId}`}</span>
 
-                  <span className="rst-col-center rst-qty">{fmt.format(row.currentSellQty)}</span>
+                  <span className="rst-col-center rst-qty">{fmt.format(row.realStockQty)}</span>
+
+                  <span className="rst-col-center rst-qty">{fmt.format(row.onMarketQty)}</span>
+
+                  <span className="rst-col-center rst-qty">
+                    {row.sellVelocity != null ? (
+                      <>
+                        {fmt.format(row.sellVelocity)}
+                        {row.suggestedTarget != null && row.suggestedTarget !== row.targetQty && (
+                          <button
+                            className="rst-suggest-btn"
+                            onClick={() => handleUseSuggested(row.typeId)}
+                            title={`Use suggested target (${fmt.format(row.suggestedTarget)}, based on 30-day sales)`}
+                          >
+                            →{fmt.format(row.suggestedTarget)}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span title="No character has re-authenticated to grant wallet access yet — see Characters settings.">—</span>
+                    )}
+                  </span>
 
                   <span className="rst-col-center">
                     {isEditing ? (
@@ -335,6 +426,19 @@ export function RestockView() {
                     )}
                   </span>
 
+                  <span className="rst-col-center">
+                    <input
+                      type="number"
+                      className="rst-overbuild-edit"
+                      placeholder="default"
+                      defaultValue={row.overbuildPct != null ? row.overbuildPct * 100 : ""}
+                      min={0}
+                      step={1}
+                      onBlur={(e) => commitOverbuildPct(row.typeId, e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                    />
+                  </span>
+
                   <span className={`rst-col-center rst-deficit${hasDeficit ? " has-deficit" : ""}`}>
                     {hasDeficit ? `−${fmt.format(row.deficit)}` : "—"}
                   </span>
@@ -348,6 +452,15 @@ export function RestockView() {
                   </span>
 
                   <span className="rst-col-actions">
+                    {hasDeficit && (
+                      <button
+                        className="rst-add-plan-btn"
+                        onClick={() => handleAddToPlan(row.typeId, row.deficit)}
+                        title="Add this deficit to the active plan, live-linked to this restock policy — quantity recalculates at solve time."
+                      >
+                        {addedToPlan === row.typeId ? "Added" : "+ Plan"}
+                      </button>
+                    )}
                     <button
                       className="rst-remove-btn"
                       onClick={() => handleRemove(row.typeId)}

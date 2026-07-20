@@ -26,6 +26,10 @@ pub struct CharacterInfo {
     pub corp_assets_mode: String,
     /// True if corp asset access was confirmed on last sync (Director role).
     pub has_corp_access:  bool,
+    /// True if the wallet-read scope was confirmed on last sync. False (not just
+    /// "unknown") until a successful wallet transaction fetch confirms it —
+    /// characters added before this scope existed need to re-authenticate.
+    pub has_wallet_scope: bool,
 }
 
 /// Start the OAuth2 PKCE flow. Opens the browser and waits for the callback.
@@ -42,23 +46,35 @@ pub async fn add_character(
         .await
         .map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
 
+    // start_auth_flow already stored fresh tokens (possibly with newly-granted
+    // scopes) even if this character was already added — treat that case as a
+    // re-authentication rather than an error, so the caller's follow-up ESI
+    // refresh can pick up the new scopes (e.g. wallet access).
     let existing = local.0.get_characters().map_err(CommandError::from)?;
-    if existing.iter().any(|(id, _)| *id == character_id) {
-        return Err(CommandError::InvalidInput {
-            message: format!("{character_name} is already added."),
-        });
-    }
+    let already_existed = existing.iter().any(|(id, _)| *id == character_id);
 
     local
         .0
         .upsert_character(character_id, &character_name)
         .map_err(CommandError::from)?;
 
+    let (corp_assets_mode, has_corp_access) = if already_existed {
+        local.0.get_character_extra(character_id).unwrap_or_else(|_| ("personal".to_string(), false))
+    } else {
+        ("personal".to_string(), false)
+    };
+    let has_wallet_scope = if already_existed {
+        local.0.get_wallet_scope(character_id).unwrap_or(false)
+    } else {
+        false
+    };
+
     Ok(CharacterInfo {
         character_id,
         character_name,
-        corp_assets_mode: "personal".to_string(),
-        has_corp_access: false,
+        corp_assets_mode,
+        has_corp_access,
+        has_wallet_scope,
     })
 }
 
@@ -92,11 +108,13 @@ pub fn list_characters(
                         .0
                         .get_character_extra(id)
                         .unwrap_or_else(|_| ("personal".to_string(), false));
+                    let has_wallet_scope = local.0.get_wallet_scope(id).unwrap_or(false);
                     CharacterInfo {
                         character_id: id,
                         character_name: name,
                         corp_assets_mode: mode,
                         has_corp_access,
+                        has_wallet_scope,
                     }
                 })
                 .collect()
@@ -187,12 +205,13 @@ pub async fn refresh_all_esi_data(
                 let _ = endpoints::fetch_corporation_asset_structures(client, db, char_id).await;
 
                 if include_personal {
-                    let (assets, skills, jobs, blueprints, _orders) = tokio::join!(
+                    let (assets, skills, jobs, blueprints, _orders, _wallet_tx) = tokio::join!(
                         endpoints::fetch_character_assets(client, db, char_id),
                         endpoints::fetch_character_skills(client, db, char_id),
                         endpoints::fetch_character_jobs(client, db, char_id),
                         endpoints::fetch_character_blueprints(client, db, char_id),
                         endpoints::fetch_character_market_orders(client, db, char_id),
+                        endpoints::fetch_character_wallet_transactions(client, db, char_id),
                     );
                     assets.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
                     skills.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
@@ -276,12 +295,13 @@ pub async fn refresh_esi_data(
     indices.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
 
     if include_personal {
-        let (assets, skills, jobs, blueprints, _orders) = tokio::join!(
+        let (assets, skills, jobs, blueprints, _orders, _wallet_tx) = tokio::join!(
             endpoints::fetch_character_assets(client, db, character_id),
             endpoints::fetch_character_skills(client, db, character_id),
             endpoints::fetch_character_jobs(client, db, character_id),
             endpoints::fetch_character_blueprints(client, db, character_id),
             endpoints::fetch_character_market_orders(client, db, character_id),
+            endpoints::fetch_character_wallet_transactions(client, db, character_id),
         );
         assets.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
         skills.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;

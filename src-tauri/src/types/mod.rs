@@ -337,6 +337,12 @@ pub struct BuildTarget {
     /// Which structure profile to use for the top-level job.
     /// Child nodes inherit this unless overridden.
     pub structure_profile_id: Option<String>,
+    /// When set, this target is live-linked to a restock policy: the wire
+    /// `quantity` is ignored and recomputed server-side from the current
+    /// restock target/overbuild/real-stock at solve time (see
+    /// `assemble_solver_input`). Usually equal to `type_id`, but kept as a
+    /// separate field in case a stock-target link ever needs to differ.
+    pub stock_target_type_id: Option<TypeId>,
 }
 
 /// An active or recently delivered ESI industry job.

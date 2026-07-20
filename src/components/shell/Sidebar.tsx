@@ -68,7 +68,7 @@ export function Sidebar() {
       const id = await newPlan();
       const namesFromImport: Record<number, string> = {};
       for (const item of items) {
-        const target: BuildTarget = { typeId: item.typeId, quantity: item.quantity, structureProfileId: defaultProfileId() };
+        const target: BuildTarget = { typeId: item.typeId, quantity: item.quantity, structureProfileId: defaultProfileId(), stockTargetTypeId: null };
         addTarget(target);
         namesFromImport[item.typeId] = item.typeName;
       }
@@ -117,7 +117,7 @@ export function Sidebar() {
   }
 
   function handlePickType(type: TypeSummary) {
-    addTarget({ typeId: type.typeId, quantity: 1, structureProfileId: defaultProfileId() });
+    addTarget({ typeId: type.typeId, quantity: 1, structureProfileId: defaultProfileId(), stockTargetTypeId: null });
   }
 
   function handleQtyChange(typeId: number, raw: string) {

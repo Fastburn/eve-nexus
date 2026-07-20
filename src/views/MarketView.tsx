@@ -445,7 +445,7 @@ export function MarketView() {
 
   async function handleTrack(item: TypeSummary, qty: number) {
     if (trackedRows.some((r) => r.typeId === item.typeId)) return;
-    await saveRestockTarget(item.typeId, qty).catch(() => {});
+    await saveRestockTarget(item.typeId, qty, null).catch(() => {});
     await loadData();
   }
 
@@ -463,12 +463,9 @@ export function MarketView() {
     if (raw === undefined) return;
     const qty = parseInt(raw, 10);
     if (!isNaN(qty) && qty >= 1) {
-      await saveRestockTarget(typeId, qty).catch(() => {});
-      setTrackedRows((prev) => prev.map((r) =>
-        r.typeId === typeId
-          ? { ...r, targetQty: qty, deficit: Math.max(0, qty - r.currentSellQty) }
-          : r,
-      ));
+      const row = trackedRows.find((r) => r.typeId === typeId);
+      await saveRestockTarget(typeId, qty, row?.overbuildPct ?? null).catch(() => {});
+      await loadData();
     }
     setEditQty((p) => { const n = { ...p }; delete n[typeId]; return n; });
   }
@@ -748,7 +745,7 @@ export function MarketView() {
                         {row.typeName || `Type ${row.typeId}`}
                       </button>
 
-                      <span className="mkt-col-r mkt-qty">{fmt.format(row.currentSellQty)}</span>
+                      <span className="mkt-col-r mkt-qty">{fmt.format(row.onMarketQty)}</span>
 
                       <span className="mkt-col-r">
                         {isEditing ? (

@@ -130,6 +130,14 @@ export function CharactersPanel() {
                 <div className="cp-char-info">
                   <span className="cp-char-name">{c.characterName}</span>
                   <span className="cp-char-id">#{c.characterId}</span>
+                  {!c.hasWalletScope && (
+                    <div
+                      className="cp-hint"
+                      title="Remove and re-add this character to grant wallet access, so sales velocity can be tracked for restock targets."
+                    >
+                      Re-authenticate to enable sales tracking
+                    </div>
+                  )}
                   {c.hasCorpAccess && (
                     <div className="cp-corp-mode" title="Choose which assets to include in your plans. Requires Director role.">
                       {(["personal", "both", "corp"] as const).map((m) => (

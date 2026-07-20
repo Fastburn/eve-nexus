@@ -205,9 +205,14 @@ export const usePlanStore = create<PlanState>((set, get) => ({
 
   addTarget: (target) => {
     set((s) => {
-      // If the type is already in the list, merge quantities.
+      // If the type is already in the list, merge quantities — unless this is
+      // a stock-target link, whose quantity is recomputed live at solve time,
+      // so summing it with an existing entry would double-count.
       const existing = s.targets.findIndex((t) => t.typeId === target.typeId);
       if (existing >= 0) {
+        if (target.stockTargetTypeId != null) {
+          return s;
+        }
         const updated = [...s.targets];
         updated[existing] = {
           ...updated[existing],

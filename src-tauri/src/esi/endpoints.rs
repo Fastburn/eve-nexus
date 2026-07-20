@@ -31,10 +31,12 @@ const CACHE_COST_INDICES: &str = "cost_indices";
 
 fn cache_assets(id: CharacterId)        -> String { format!("char:{id}:assets") }
 fn cache_corp_assets(corp_id: i64)      -> String { format!("corp:{corp_id}:assets") }
+fn cache_corp_access(id: CharacterId)   -> String { format!("char:{id}:corp_access") }
 fn cache_skills(id: CharacterId)        -> String { format!("char:{id}:skills") }
 fn cache_jobs(id: CharacterId)          -> String { format!("char:{id}:jobs") }
 fn cache_blueprints(id: CharacterId)    -> String { format!("char:{id}:blueprints") }
 fn cache_mkt_orders(id: CharacterId)   -> String { format!("char:{id}:market_orders") }
+fn cache_wallet_tx(id: CharacterId)    -> String { format!("char:{id}:wallet_tx") }
 
 // ─── ESI response shapes ─────────────────────────────────────────────────────
 
@@ -476,6 +478,94 @@ pub async fn fetch_character_market_orders(
     Ok(())
 }
 
+/// Wallet transaction as returned by `GET /characters/{id}/wallet/transactions/`.
+#[derive(Debug, Deserialize)]
+struct EsiWalletTransaction {
+    transaction_id: i64,
+    date:           DateTime<Utc>,
+    type_id:        TypeId,
+    quantity:       u64,
+    unit_price:     f64,
+    is_buy:         bool,
+}
+
+/// Fetch a character's wallet transaction history (cursor-paginated via `from_id`)
+/// and persist any rows not already known locally.
+///
+/// Sets the character's `has_wallet_scope` flag based on outcome: `true` on any
+/// successful call, `false` on a definitive 403 (missing OAuth scope). Other
+/// errors (network, rate limit) leave the flag untouched and are propagated.
+pub async fn fetch_character_wallet_transactions(
+    client: &EsiClient,
+    local: &LocalDb,
+    character_id: CharacterId,
+) -> EsiResult<()> {
+    let key = cache_wallet_tx(character_id);
+    if local.get_cache_expiry(&key).map_err(esi_local_err)?.is_some() {
+        return Ok(());
+    }
+
+    let base_path = format!("/characters/{character_id}/wallet/transactions/");
+    let mut from_id: Option<i64> = None;
+    let mut last_expiry: Option<DateTime<Utc>> = None;
+
+    loop {
+        let path = match from_id {
+            Some(id) => format!("{base_path}?from_id={id}"),
+            None => base_path.clone(),
+        };
+
+        let result = client.get_auth::<Vec<EsiWalletTransaction>>(&path, character_id).await;
+        let (page, expiry) = match result {
+            Ok(v) => v,
+            Err(EsiError::HttpError { status: 403, .. }) => {
+                let _ = local.set_wallet_scope(character_id, false);
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        };
+        let _ = local.set_wallet_scope(character_id, true);
+        last_expiry = expiry.or(last_expiry);
+
+        if page.is_empty() {
+            break;
+        }
+
+        let page_len = page.len();
+        let oldest_id = page.iter().map(|t| t.transaction_id).min();
+
+        let rows: Vec<crate::db::local::WalletTransactionRow> = page
+            .into_iter()
+            .map(|t| crate::db::local::WalletTransactionRow {
+                transaction_id: t.transaction_id,
+                character_id,
+                type_id:        t.type_id,
+                quantity:       t.quantity,
+                is_buy:         t.is_buy,
+                unit_price:     t.unit_price,
+                date:           t.date.to_rfc3339(),
+            })
+            .collect();
+
+        let inserted = local.insert_wallet_transactions(&rows).map_err(esi_local_err)?;
+
+        // Stop once incremental sync catches up with already-known history, or
+        // we've reached the last (partial) page of the account's full history.
+        if inserted == 0 || page_len < 2500 {
+            break;
+        }
+
+        from_id = oldest_id;
+        if from_id.is_none() {
+            break;
+        }
+    }
+
+    update_expiry(local, &key, last_expiry, 600);
+
+    Ok(())
+}
+
 // ─── Market order prices ──────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -541,20 +631,35 @@ pub async fn fetch_corporation_asset_structures(
     let (char_info, _) = client.get_public::<EsiCharacterPublicInfo>(&char_path).await?;
     let corp_id = char_info.corporation_id;
 
-    // Skip if corp assets are still fresh.
+    // The corp asset *data* cache is shared across characters in the same corp (the
+    // data itself is identical regardless of who fetches it), but director-role
+    // access is per-character — a shared skip here would leave other characters'
+    // has_corp_access flag unchecked whenever a corp-mate already refreshed the data.
     let corp_key = cache_corp_assets(corp_id);
-    if local.get_cache_expiry(&corp_key).map_err(esi_local_err)?.is_some() {
+    let access_key = cache_corp_access(character_id);
+    let data_fresh = local.get_cache_expiry(&corp_key).map_err(esi_local_err)?.is_some();
+    let access_fresh = local.get_cache_expiry(&access_key).map_err(esi_local_err)?.is_some();
+    if data_fresh && access_fresh {
         return Ok(());
     }
 
     let path = format!("/corporations/{corp_id}/assets/");
     let result = client.get_auth_all_pages::<EsiAsset>(&path, character_id).await;
 
-    // Detect director access: 403 means no director role.
+    // Detect director access: 403 means no director role. Only mark the per-character
+    // access check as fresh when we got a definitive answer (success or 403) — a
+    // network/other error means access wasn't actually verified, so leave it stale
+    // for retry on the next sync.
     match &result {
-        Ok(_) => { let _ = local.set_corp_access(character_id, true); }
-        Err(EsiError::HttpError { status: 403, .. }) => { let _ = local.set_corp_access(character_id, false); }
-        Err(_) => {} // Network/other error — don't change access flag.
+        Ok(_) => {
+            let _ = local.set_corp_access(character_id, true);
+            update_expiry(local, &access_key, None, 3600);
+        }
+        Err(EsiError::HttpError { status: 403, .. }) => {
+            let _ = local.set_corp_access(character_id, false);
+            update_expiry(local, &access_key, None, 3600);
+        }
+        Err(_) => {} // Network/other error — don't change access flag or cache freshness.
     }
 
     let (raw, expiry) = result?;

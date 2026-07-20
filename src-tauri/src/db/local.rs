@@ -163,6 +163,7 @@ pub const SETTING_DEVICE_ID: &str = "device_id";
 pub const SETTING_RESTOCK_MARGIN: &str = "restock_margin_threshold";
 pub const SETTING_DEFAULT_MULTIPLIER: &str = "default_overproduction_multiplier";
 pub const SETTING_DEFAULT_FREIGHT_ISK_PER_M3: &str = "default_freight_isk_per_m3";
+pub const SETTING_DEFAULT_OVERBUILD_PCT: &str = "default_overbuild_pct";
 pub const SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME: &str = "optimize_decrypters_for_time";
 
 // ─── LocalDb ─────────────────────────────────────────────────────────────────
@@ -245,6 +246,15 @@ impl LocalDb {
             "ALTER TABLE characters ADD COLUMN has_corp_access INTEGER NOT NULL DEFAULT 0",
             [],
         );
+        let _ = self.conn()?.execute(
+            "ALTER TABLE characters ADD COLUMN has_wallet_scope INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+        let _ = self.conn()?.execute(
+            "ALTER TABLE restock_targets ADD COLUMN overbuild_pct REAL",
+            [],
+        );
+
         self.conn()?.execute_batch(
             "
             BEGIN;
@@ -451,6 +461,21 @@ impl LocalDb {
                 system_name TEXT,
                 region_id   INTEGER
             );
+
+            -- Completed wallet transactions per character, used to compute sell
+            -- velocity for the restock planner. Append-only: transaction_id is
+            -- ESI's globally unique, monotonically increasing ID, so re-syncing
+            -- never duplicates a row (INSERT OR IGNORE).
+            CREATE TABLE IF NOT EXISTS wallet_transactions (
+                transaction_id INTEGER PRIMARY KEY,
+                character_id   INTEGER NOT NULL,
+                type_id        INTEGER NOT NULL,
+                quantity       INTEGER NOT NULL,
+                is_buy         INTEGER NOT NULL,
+                unit_price     REAL    NOT NULL,
+                date           TEXT    NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_wallet_tx_type_date ON wallet_transactions(type_id, date);
             COMMIT;
             ",
         )?;
@@ -998,6 +1023,24 @@ impl LocalDb {
         self.conn()?.execute(
             "UPDATE characters SET has_corp_access = ?1 WHERE character_id = ?2",
             rusqlite::params![has_access as i32, character_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_wallet_scope(&self, character_id: crate::types::CharacterId) -> LocalResult<bool> {
+        let conn = self.conn()?;
+        let has_scope: Option<i32> = conn.query_row(
+            "SELECT has_wallet_scope FROM characters WHERE character_id = ?1",
+            [character_id],
+            |r| r.get(0),
+        ).optional()?;
+        Ok(has_scope.unwrap_or(0) != 0)
+    }
+
+    pub fn set_wallet_scope(&self, character_id: crate::types::CharacterId, has_scope: bool) -> LocalResult<()> {
+        self.conn()?.execute(
+            "UPDATE characters SET has_wallet_scope = ?1 WHERE character_id = ?2",
+            rusqlite::params![has_scope as i32, character_id],
         )?;
         Ok(())
     }
@@ -1883,19 +1926,32 @@ impl LocalDb {
 // ─── Restock targets ──────────────────────────────────────────────────────────
 
 impl LocalDb {
-    pub fn get_restock_targets(&self) -> LocalResult<Vec<(TypeId, u64)>> {
+    /// Returns `(type_id, target_qty, overbuild_pct)`. `overbuild_pct` is `None`
+    /// when the row uses the global default (`SETTING_DEFAULT_OVERBUILD_PCT`).
+    pub fn get_restock_targets(&self) -> LocalResult<Vec<(TypeId, u64, Option<f64>)>> {
         let conn = self.conn()?;
-        let mut stmt = conn.prepare_cached("SELECT type_id, target_qty FROM restock_targets ORDER BY type_id")?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, TypeId>(0)?, r.get::<_, u64>(1)?)))?;
+        let mut stmt = conn.prepare_cached(
+            "SELECT type_id, target_qty, overbuild_pct FROM restock_targets ORDER BY type_id",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, TypeId>(0)?, r.get::<_, u64>(1)?, r.get::<_, Option<f64>>(2)?))
+        })?;
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
-    pub fn upsert_restock_target(&self, type_id: TypeId, target_qty: u64) -> LocalResult<()> {
+    pub fn upsert_restock_target(
+        &self,
+        type_id: TypeId,
+        target_qty: u64,
+        overbuild_pct: Option<f64>,
+    ) -> LocalResult<()> {
         self.conn()?.execute(
-            "INSERT INTO restock_targets (type_id, target_qty)
-             VALUES (?1, ?2)
-             ON CONFLICT(type_id) DO UPDATE SET target_qty = excluded.target_qty",
-            rusqlite::params![type_id, target_qty],
+            "INSERT INTO restock_targets (type_id, target_qty, overbuild_pct)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(type_id) DO UPDATE SET
+                target_qty = excluded.target_qty,
+                overbuild_pct = excluded.overbuild_pct",
+            rusqlite::params![type_id, target_qty, overbuild_pct],
         )?;
         Ok(())
     }
@@ -2000,6 +2056,50 @@ impl LocalDb {
         tx.commit()?;
         Ok(())
     }
+
+    /// Inserts wallet transaction rows, ignoring any whose `transaction_id`
+    /// already exists. Returns the number of rows actually inserted, which
+    /// callers use to detect when incremental sync has caught up with history.
+    pub fn insert_wallet_transactions(&self, rows: &[WalletTransactionRow]) -> LocalResult<usize> {
+        let conn = self.conn()?;
+        let tx = conn.unchecked_transaction()?;
+        let mut inserted = 0usize;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT OR IGNORE INTO wallet_transactions
+                 (transaction_id, character_id, type_id, quantity, is_buy, unit_price, date)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            )?;
+            for r in rows {
+                inserted += stmt.execute(rusqlite::params![
+                    r.transaction_id,
+                    r.character_id,
+                    r.type_id,
+                    r.quantity,
+                    r.is_buy as i32,
+                    r.unit_price,
+                    r.date,
+                ])?;
+            }
+        }
+        tx.commit()?;
+        Ok(inserted)
+    }
+
+    /// Units sold (across all characters) per type since `since`.
+    pub fn get_sell_velocity(&self, since: DateTime<Utc>) -> LocalResult<HashMap<TypeId, u64>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare_cached(
+            "SELECT type_id, SUM(quantity)
+             FROM wallet_transactions
+             WHERE is_buy = 0 AND date >= ?1
+             GROUP BY type_id",
+        )?;
+        let rows = stmt.query_map([since.to_rfc3339()], |r| {
+            Ok((r.get::<_, TypeId>(0)?, r.get::<_, u64>(1)?))
+        })?;
+        rows.collect::<Result<HashMap<_, _>, _>>().map_err(Into::into)
+    }
 }
 
 // ─── Market order row (used for DB storage) ───────────────────────────────────
@@ -2011,6 +2111,19 @@ pub struct MarketOrderRow {
     pub volume_remain: u64,
     pub is_buy_order: bool,
     pub price:        f64,
+}
+
+// ─── Wallet transaction row (used for DB storage) ─────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct WalletTransactionRow {
+    pub transaction_id: i64,
+    pub character_id:   crate::types::CharacterId,
+    pub type_id:         TypeId,
+    pub quantity:        u64,
+    pub is_buy:          bool,
+    pub unit_price:      f64,
+    pub date:             String,
 }
 
 /// Holds an `Arc` so the same connection can be shared with `AuthManager`.

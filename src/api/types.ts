@@ -146,6 +146,8 @@ export interface BuildTarget {
   typeId: TypeId;
   quantity: number;
   structureProfileId: string | null;
+  /** When set, quantity is ignored and recomputed live from the restock policy at solve time. */
+  stockTargetTypeId: TypeId | null;
 }
 
 export interface SolvePlanRequest {
@@ -302,6 +304,8 @@ export interface CharacterInfo {
   corpAssetsMode: string;
   /** True if Director role was confirmed on last sync. */
   hasCorpAccess: boolean;
+  /** True if the wallet-read scope was confirmed on last sync. */
+  hasWalletScope: boolean;
 }
 
 // ── App updater ───────────────────────────────────────────────────────────────

@@ -215,7 +215,7 @@
 .rst-list-header,
 .rst-row {
   display: grid;
-  grid-template-columns: 1fr 80px 80px 80px 110px 80px 32px;
+  grid-template-columns: 1fr 80px 80px 110px 80px 90px 80px 110px 80px 90px;
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-3);
@@ -256,7 +256,20 @@
 
 .rst-col-center { text-align: center; }
 .rst-col-right  { text-align: right; }
-.rst-col-actions { display: flex; justify-content: center; }
+.rst-col-actions { display: flex; justify-content: center; align-items: center; gap: var(--sp-1); }
+
+.rst-add-plan-btn {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.rst-add-plan-btn:hover { background: var(--surface-2); }
 
 .rst-qty {
   font-size: 12px;
@@ -317,6 +330,31 @@
 }
 
 .rst-qty-edit:focus { outline: none; }
+
+.rst-overbuild-edit {
+  width: 100%;
+  padding: 2px var(--sp-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text);
+  text-align: center;
+}
+
+.rst-overbuild-edit:focus { outline: none; border-color: var(--accent); }
+.rst-overbuild-edit::placeholder { color: var(--text-3); }
+
+.rst-suggest-btn {
+  margin-left: var(--sp-1);
+  font-size: 10px;
+  color: var(--accent);
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.rst-suggest-btn:hover { text-decoration: underline; }
 
 /* ── Export buttons ───────────────────────────────────────────────────────── */
 .rst-export-group {

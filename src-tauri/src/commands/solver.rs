@@ -169,8 +169,36 @@ pub(super) fn assemble_solver_input(
     let adjusted_prices = local.get_adjusted_prices().unwrap_or_default();
     let cost_indices = local.get_cost_indices().unwrap_or_default();
 
+    // ── Restock-linked targets: recompute quantity live from current stock ──
+    // Injected server-side (not in solveRequest.ts) so both solve_build_plan
+    // and compute_schedule see the same, always-fresh deficit, and so the
+    // "Add to plan" flow can be a thin live link rather than a snapshot.
+    let restock_policies = local.get_restock_targets().unwrap_or_default();
+    let default_overbuild = local
+        .get_setting(crate::db::local::SETTING_DEFAULT_OVERBUILD_PCT)
+        .unwrap_or_default()
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let mut targets = request.targets;
+    for t in &mut targets {
+        let Some(stock_type_id) = t.stock_target_type_id else { continue };
+        let Some((_, target_qty, overbuild_pct)) =
+            restock_policies.iter().find(|(id, _, _)| *id == stock_type_id)
+        else {
+            // Dangling link (restock row deleted after being added to a plan):
+            // fall back to the target's last-known quantity as-is.
+            continue;
+        };
+        let real_stock = assets.get(&stock_type_id).copied().unwrap_or(0)
+            + virtual_hangar.get(&stock_type_id).copied().unwrap_or(0);
+        t.quantity = compute_stock_deficit(*target_qty, overbuild_pct.unwrap_or(default_overbuild), real_stock);
+    }
+    // Drop stock-linked targets that fully net out to zero — nothing to build.
+    targets.retain(|t| t.quantity > 0 || t.stock_target_type_id.is_none());
+
     Ok(SolverInput {
-        targets: request.targets,
+        targets,
         assets,
         active_jobs,
         adjusted_prices,
@@ -327,5 +355,41 @@ fn type_info_to_summary(info: crate::db::sde::SdeTypeInfo) -> TypeSummary {
         category_id: info.category_id,
         group_id: info.group_id,
         volume: info.volume,
+    }
+}
+
+/// How many more units are needed to reach `target_qty` plus its overbuild
+/// buffer, given `real_stock` already on hand. Mirrors the deficit formula
+/// used by `get_restock_rows` so the Restock view and the solver always agree.
+fn compute_stock_deficit(target_qty: u64, overbuild_pct: f64, real_stock: u64) -> u64 {
+    let adjusted = ((target_qty as f64) * (1.0 + overbuild_pct)).ceil() as u64;
+    adjusted.saturating_sub(real_stock)
+}
+
+#[cfg(test)]
+mod stock_deficit_tests {
+    use super::compute_stock_deficit;
+
+    #[test]
+    fn deficit_below_stock_is_zero() {
+        assert_eq!(compute_stock_deficit(50, 0.0, 80), 0);
+    }
+
+    #[test]
+    fn deficit_with_no_overbuild() {
+        assert_eq!(compute_stock_deficit(50, 0.0, 20), 30);
+    }
+
+    #[test]
+    fn deficit_with_overbuild_rounds_up() {
+        // target 50 * 1.2 = 60, minus 20 on hand = 40
+        assert_eq!(compute_stock_deficit(50, 0.2, 20), 40);
+        // target 3 * 1.5 = 4.5 -> ceil 5, minus 0 on hand = 5
+        assert_eq!(compute_stock_deficit(3, 0.5, 0), 5);
+    }
+
+    #[test]
+    fn deficit_with_no_stock() {
+        assert_eq!(compute_stock_deficit(100, 0.0, 0), 100);
     }
 }
