@@ -91,6 +91,16 @@
   border-color: var(--accent);
 }
 
+.rst-hide-low-margin {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .rst-margin-unit {
   color: var(--text-3);
 }

@@ -1,11 +1,12 @@
 // Copyright (C) 2026 Eve Nexus contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlanStore, useSettingsStore } from "../store";
 import { computeSchedule } from "../api";
 import { buildSolveRequest } from "../lib/solveRequest";
 import { fmtDuration } from "../lib/format";
+import { copyText } from "../lib/export";
 import type { PlanSchedule } from "../api";
 import "./ScheduleView.css";
 
@@ -48,6 +49,18 @@ export function ScheduleView() {
   // Reverse "what-if" inputs: how many days the user wants to finish by
   const [targetMfgInput, setTargetMfgInput] = useState("");
   const [targetInvInput, setTargetInvInput] = useState("");
+
+  // Per-row "Copied!" feedback
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleCopyRow(key: string, text: string) {
+    copyText(text).then(() => {
+      setCopiedKey(key);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopiedKey(null), 1500);
+    });
+  }
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
@@ -212,6 +225,7 @@ export function ScheduleView() {
               <col className="schedule-col-num" />
               <col className="schedule-col-num" />
               <col className="schedule-col-num" />
+              <col className="schedule-col-num" />
             </colgroup>
             <thead>
               <tr>
@@ -219,17 +233,56 @@ export function ScheduleView() {
                 <th className="schedule-num">Runs</th>
                 <th className="schedule-num">Time / run</th>
                 <th className="schedule-num">Total work</th>
+                <th className="schedule-num"></th>
               </tr>
             </thead>
             <tbody>
-              {schedule.manufacturing.map((j) => (
-                <tr key={j.typeId}>
-                  <td>{j.typeName}</td>
-                  <td className="schedule-num">{j.runs.toLocaleString()}</td>
-                  <td className="schedule-num">{fmtDuration(j.timePerRunSeconds)}</td>
-                  <td className="schedule-num">{fmtDuration(j.runs * j.timePerRunSeconds)}</td>
-                </tr>
-              ))}
+              {schedule.manufacturing.map((j) => {
+                const key = `mfg-${j.typeId}`;
+                const nameKey = `mfg-name-${j.typeId}`;
+                return (
+                  <tr key={j.typeId}>
+                    <td>
+                      <span className="schedule-name-cell">
+                        <button
+                          className="schedule-name-copy-btn"
+                          title="Copy item name"
+                          onClick={() => handleCopyRow(nameKey, j.typeName)}
+                        >
+                          {copiedKey === nameKey ? (
+                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6">
+                              <polyline points="3,8.5 6.5,12 13,4.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.3">
+                              <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
+                              <path d="M3.5 10.5v-7a1 1 0 0 1 1-1h7" />
+                            </svg>
+                          )}
+                        </button>
+                        {j.typeName}
+                      </span>
+                    </td>
+                    <td className="schedule-num">{j.runs.toLocaleString()}</td>
+                    <td className="schedule-num">{fmtDuration(j.timePerRunSeconds)}</td>
+                    <td className="schedule-num">{fmtDuration(j.runs * j.timePerRunSeconds)}</td>
+                    <td className="schedule-num">
+                      <button
+                        className="schedule-row-copy-btn"
+                        title="Copy this row as tab-separated text"
+                        onClick={() =>
+                          handleCopyRow(
+                            key,
+                            `${j.typeName}\t${j.runs}\t${fmtDuration(j.timePerRunSeconds)}\t${fmtDuration(j.runs * j.timePerRunSeconds)}`,
+                          )
+                        }
+                      >
+                        {copiedKey === key ? "Copied!" : "Copy"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </section>
@@ -300,6 +353,7 @@ export function ScheduleView() {
               <col className="schedule-col-num" />
               <col className="schedule-col-num" />
               <col className="schedule-col-num" />
+              <col className="schedule-col-num" />
             </colgroup>
             <thead>
               <tr>
@@ -309,19 +363,59 @@ export function ScheduleView() {
                 <th className="schedule-num">Exp. BPCs</th>
                 <th className="schedule-num">Time / attempt</th>
                 <th className="schedule-num">Total work</th>
+                <th className="schedule-num"></th>
               </tr>
             </thead>
             <tbody>
-              {schedule.invention.map((j) => (
-                <tr key={j.typeId}>
-                  <td>{j.typeName.replace(" (Invention)", "")}</td>
-                  <td className="schedule-num">{j.attempts.toLocaleString()}</td>
-                  <td className="schedule-num">{(j.probability * 100).toFixed(1)}%</td>
-                  <td className="schedule-num">{j.expectedBpcs.toFixed(1)}</td>
-                  <td className="schedule-num">{fmtDuration(j.timePerAttemptSeconds)}</td>
-                  <td className="schedule-num">{fmtDuration(j.attempts * j.timePerAttemptSeconds)}</td>
-                </tr>
-              ))}
+              {schedule.invention.map((j) => {
+                const key = `inv-${j.typeId}`;
+                const typeName = j.typeName.replace(" (Invention)", "");
+                const nameKey = `inv-name-${j.typeId}`;
+                return (
+                  <tr key={j.typeId}>
+                    <td>
+                      <span className="schedule-name-cell">
+                        <button
+                          className="schedule-name-copy-btn"
+                          title="Copy item name"
+                          onClick={() => handleCopyRow(nameKey, typeName)}
+                        >
+                          {copiedKey === nameKey ? (
+                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6">
+                              <polyline points="3,8.5 6.5,12 13,4.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.3">
+                              <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
+                              <path d="M3.5 10.5v-7a1 1 0 0 1 1-1h7" />
+                            </svg>
+                          )}
+                        </button>
+                        {typeName}
+                      </span>
+                    </td>
+                    <td className="schedule-num">{j.attempts.toLocaleString()}</td>
+                    <td className="schedule-num">{(j.probability * 100).toFixed(1)}%</td>
+                    <td className="schedule-num">{j.expectedBpcs.toFixed(1)}</td>
+                    <td className="schedule-num">{fmtDuration(j.timePerAttemptSeconds)}</td>
+                    <td className="schedule-num">{fmtDuration(j.attempts * j.timePerAttemptSeconds)}</td>
+                    <td className="schedule-num">
+                      <button
+                        className="schedule-row-copy-btn"
+                        title="Copy this row as tab-separated text"
+                        onClick={() =>
+                          handleCopyRow(
+                            key,
+                            `${typeName}\t${j.attempts}\t${(j.probability * 100).toFixed(1)}%\t${j.expectedBpcs.toFixed(1)}\t${fmtDuration(j.timePerAttemptSeconds)}\t${fmtDuration(j.attempts * j.timePerAttemptSeconds)}`,
+                          )
+                        }
+                      >
+                        {copiedKey === key ? "Copied!" : "Copy"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </section>

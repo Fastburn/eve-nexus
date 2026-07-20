@@ -24,6 +24,7 @@ export function RestockView() {
   const [error, setError]             = useState<string | null>(null);
   const [marginPct, setMarginPct]     = useState(10);
   const [marginInput, setMarginInput] = useState("10");
+  const [hideLowMargin, setHideLowMargin] = useState(false);
   const [overbuildPct, setOverbuildPct]   = useState(0);
   const [overbuildInput, setOverbuildInput] = useState("0");
 
@@ -249,6 +250,13 @@ export function RestockView() {
     );
   }
 
+  const visibleRows = hideLowMargin
+    ? rows.filter((row) => {
+        const margin = getMarginPctFor(row.typeId);
+        return margin === null || margin >= marginPct;
+      })
+    : rows;
+
   return (
     <div className="rst">
       <div className="rst-scroll">
@@ -276,6 +284,14 @@ export function RestockView() {
               />
               <span className="rst-margin-unit">%</span>
             </div>
+            <label className="rst-hide-low-margin">
+              <input
+                type="checkbox"
+                checked={hideLowMargin}
+                onChange={(e) => setHideLowMargin(e.target.checked)}
+              />
+              Hide below min
+            </label>
             <div className="rst-margin-wrap">
               <label className="rst-margin-label" htmlFor="rst-overbuild">Default overbuild</label>
               <input
@@ -351,6 +367,11 @@ export function RestockView() {
             <p>No items tracked yet.</p>
             <p>Use the search above to add items you sell on the market.</p>
           </div>
+        ) : visibleRows.length === 0 ? (
+          <div className="rst-empty">
+            <p>All tracked items are below the minimum margin.</p>
+            <p>Uncheck "Hide below min" to see them.</p>
+          </div>
         ) : (
           <div className="rst-list">
             <div className="rst-list-header">
@@ -366,7 +387,7 @@ export function RestockView() {
               <span />
             </div>
 
-            {rows.map((row) => {
+            {visibleRows.map((row) => {
               const sell    = getBestSell(row.typeId);
               const margin  = getMarginPctFor(row.typeId);
               const lowMargin = margin !== null && margin < marginPct;

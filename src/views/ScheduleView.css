@@ -87,6 +87,29 @@
   margin: 0;
 }
 
+.schedule-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedule-name-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-3);
+  padding: 2px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+.schedule-name-copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
 /* ── Slot rows ───────────────────────────────────────────────────────────────── */
 
 .schedule-slots-row {
@@ -265,4 +288,21 @@
   font-size: 11px;
   color: var(--text-3);
   margin-left: auto;
+}
+
+/* ── Per-row copy button ─────────────────────────────────────────────────────── */
+
+.schedule-row-copy-btn {
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+  white-space: nowrap;
+}
+.schedule-row-copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--border);
+  background: var(--surface-2);
 }

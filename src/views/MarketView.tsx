@@ -266,6 +266,7 @@ export function MarketView() {
   const [error, setError]               = useState<string | null>(null);
   const [marginPct, setMarginPct]       = useState(10);
   const [marginInput, setMarginInput]   = useState("10");
+  const [hideLowMargin, setHideLowMargin] = useState(false);
   const [editQty, setEditQty]           = useState<Record<number, string>>({});
   const [expanded, setExpanded]         = useState<Set<number>>(new Set());
   const [analysisItem, setAnalysisItem] = useState<TypeSummary | null>(null);
@@ -496,6 +497,13 @@ export function MarketView() {
     return sell > 0 ? ((sell - buy) / sell) * 100 : null;
   }
 
+  const visibleTrackedRows = hideLowMargin
+    ? trackedRows.filter((row) => {
+        const margin = getMarginPct(row.typeId);
+        return margin === null || margin >= marginPct;
+      })
+    : trackedRows;
+
   if (loading) return <div className="mkt-state">Loading…</div>;
   if (error) return (
     <div className="mkt-state">
@@ -530,6 +538,14 @@ export function MarketView() {
           />
           <span className="mkt-margin-unit">%</span>
         </div>
+        <label className="mkt-hide-low-margin">
+          <input
+            type="checkbox"
+            checked={hideLowMargin}
+            onChange={(e) => setHideLowMargin(e.target.checked)}
+          />
+          Hide below min
+        </label>
         <button
           className="mkt-refresh-btn"
           onClick={loadData}
@@ -712,6 +728,10 @@ export function MarketView() {
             <div className="mkt-empty">
               No items tracked yet. Search for an item above and click <strong>+ Track</strong>.
             </div>
+          ) : visibleTrackedRows.length === 0 ? (
+            <div className="mkt-empty">
+              All tracked items are below the minimum margin. Uncheck <strong>Hide below min</strong> to see them.
+            </div>
           ) : (
             <div className="mkt-list">
               <div className="mkt-list-header">
@@ -724,7 +744,7 @@ export function MarketView() {
                 <span />
               </div>
 
-              {trackedRows.map((row) => {
+              {visibleTrackedRows.map((row) => {
                 const bestEntry  = getBestSell(row.typeId);
                 const margin     = getMarginPct(row.typeId);
                 const lowMargin  = margin !== null && margin < marginPct;
