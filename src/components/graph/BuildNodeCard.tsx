@@ -5,7 +5,7 @@ import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps } from "@xyflow/react";
 import type { BuildNode } from "../../api";
-import { TypeIcon } from "../common";
+import { TypeIcon, blueprintIconVariant } from "../common";
 import { useUiStore } from "../../store";
 import "./BuildNodeCard.css";
 
@@ -114,7 +114,11 @@ export const BuildNodeCard = memo(function BuildNodeCard({
       <div className="bn-card-header">
         <TypeIcon
           typeId={buildNode.typeId}
-          variant={kind === "buy" || kind === "virtualHangar" ? "icon" : "render"}
+          variant={
+            buildNode.categoryId === 9
+              ? blueprintIconVariant(buildNode)
+              : kind === "buy" || kind === "virtualHangar" ? "icon" : "render"
+          }
           size={64}
           displaySize={36}
           className="bn-card-icon"

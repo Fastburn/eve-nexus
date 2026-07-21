@@ -194,19 +194,19 @@
 .gv-table {
   min-width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .gv-th {
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-1) var(--sp-2);
   background: var(--surface-1);
   border-bottom: 1px solid var(--border);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-3);
   white-space: nowrap;
@@ -238,7 +238,7 @@
 }
 
 .gv-td {
-  padding: var(--sp-2) var(--sp-3);
+  padding: 5px var(--sp-2);
   border-bottom: 1px solid var(--border);
   color: var(--text-2);
   white-space: nowrap;
@@ -249,13 +249,13 @@
 }
 
 .gv-td-name {
-  max-width: 260px;
+  max-width: 200px;
 }
 
 .gv-name-wrap {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   overflow: hidden;
   min-width: 0;
 }
@@ -315,6 +315,18 @@
   font-size: 10px;
   opacity: 0.7;
   margin-left: 3px;
+}
+
+/* ── Decrypter column ────────────────────────────────────────────────────── */
+.gv-td-decrypter {
+  max-width: 160px;
+  width: 160px;
+}
+
+.gv-decrypter-select {
+  width: 100%;
+  max-width: 160px;
+  font-size: 11px;
 }
 
 /* ── Trend ───────────────────────────────────────────────────────────────── */

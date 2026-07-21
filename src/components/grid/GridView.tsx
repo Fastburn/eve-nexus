@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useState, useMemo, useCallback } from "react";
-import { useSolverStore, useUiStore, useMarketStore, usePlanStore } from "../../store";
-import { TypeIcon } from "../common";
+import { useSolverStore, useUiStore, useMarketStore, usePlanStore, useSettingsStore } from "../../store";
+import { TypeIcon, Select, blueprintIconVariant } from "../common";
 import { computeNodeCosts } from "../../lib/buildCost";
 import { buildCsv, buildTsv, downloadCsv, copyText } from "../../lib/export";
 import { fmtIsk } from "../../lib/format";
-import type { BuildNode } from "../../api";
+import type { BuildNode, TypeId } from "../../api";
 import type { NodeCosts } from "../../lib/buildCost";
 import "./GridView.css";
 
@@ -27,8 +27,10 @@ function flattenNodes(roots: BuildNode[]): BuildNode[] {
       // Aggregate quantities from duplicate occurrences (shared materials across targets).
       const ex = map.get(key)!;
       ex.quantityNeeded      += node.quantityNeeded;
-      // quantityOnHand is actual inventory (pre-deduction); keep the first (highest) value.
-      // Summing would double/triple-count since each occurrence sees a lower available balance.
+      // quantityOnHand is now capped per-occurrence to what that occurrence actually
+      // consumed (backend never lets two occurrences double-spend the same stock), so
+      // summing gives the true total consumed across all occurrences of this type.
+      ex.quantityOnHand      += node.quantityOnHand;
       ex.quantityInProgress  += node.quantityInProgress;
       ex.quantityFromHangar  += node.quantityFromHangar;
       ex.quantityToHangar    += node.quantityToHangar;
@@ -97,6 +99,7 @@ type SortKey =
   | "buyVol"
   | "bestSrc"
   | "trend"
+  | "decrypter"
   | "bvb";
 
 interface Col {
@@ -121,6 +124,7 @@ const COLS: Col[] = [
   { key: "buyVol",    label: "Buy m³",     align: "right", tip: "Packaged volume of items to purchase (Qty to Buy × unit volume). Use this to plan freight capacity." },
   { key: "bestSrc",   label: "Best Source", align: "left",  tip: "Cheapest place to buy this item after applying your freight rate. Requires one hub flagged Local in Settings → Market Hubs, plus at least one other hub with a price for this item." },
   { key: "trend",     label: "5d Trend",    align: "right", tip: "Price trend over the last 5 days based on market history. Shows % change in daily average price." },
+  { key: "decrypter", label: "Decrypter", align: "left", tip: "Decrypter applied to this invention job. Auto-picked to minimize cost unless overridden here — the Auto option shows what auto-pick would choose. Change persists immediately but requires a re-solve to affect this plan's numbers." },
   { key: "bvb",       label: "Buy vs Build", align: "right", tip: "For items you are building: compares market buy cost vs full build-path cost (materials + job fees). Positive savings = keep building; negative = buying is cheaper." },
 ];
 
@@ -192,6 +196,7 @@ function getValue(node: EnrichedNode, key: SortKey): string | number {
     case "buyVol":    return node.quantityToBuy > 0 ? node.quantityToBuy * node.unitVolume : 0;
     case "bestSrc":   return node.typeName;
     case "trend":     return 0; // computed per-render, not sortable
+    case "decrypter": return node.kind.type === "invention" ? (node.kind.decrypter?.typeName ?? "") : "";
     case "bvb":       return node.bvbCosts?.delta ?? 0;
   }
 }
@@ -229,11 +234,36 @@ export function GridView() {
   const planName          = usePlanStore((s) => s.activePlan?.name ?? "build-plan");
   const freightIskPerM3   = usePlanStore((s) => s.effectiveFreightIskPerM3);
 
+  const decrypterSpecs    = useSettingsStore((s) => s.decrypterSpecs);
+  const decrypterChoices  = useSettingsStore((s) => s.decrypterChoices);
+  const setDecrypterChoice   = useSettingsStore((s) => s.setDecrypterChoice);
+  const clearDecrypterChoice = useSettingsStore((s) => s.clearDecrypterChoice);
+
+  const decrypterNames = useMemo(() => {
+    const map = new Map<TypeId, string>();
+    for (const spec of decrypterSpecs) map.set(spec.typeId, spec.name);
+    return map;
+  }, [decrypterSpecs]);
+
+  const decrypterOverrideMap = useMemo(() => {
+    const map = new Map<TypeId, TypeId>();
+    for (const c of decrypterChoices) map.set(c.typeId, c.decrypterTypeId);
+    return map;
+  }, [decrypterChoices]);
+
+  const decrypterOptions = useMemo(
+    () => [
+      { value: "", label: "Auto" },
+      ...decrypterSpecs.map((s) => ({ value: String(s.typeId), label: s.name })),
+    ],
+    [decrypterSpecs],
+  );
+
   const [sortKey, setSortKey]       = useState<SortKey>("kind");
   const [sortAsc, setSortAsc]       = useState(true);
   const [filter, setFilter]         = useState("");
   const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
-  const [copyLabel, setCopyLabel]   = useState<"buy" | "done-buy" | null>(null);
+  const [copyLabel, setCopyLabel]   = useState<"buy" | "done-buy" | "done-assets" | null>(null);
 
   const flat = useMemo(() => flattenNodes(nodes), [nodes]);
 
@@ -408,8 +438,28 @@ export function GridView() {
     });
   }, [filtered, sortKey, sortAsc]);
 
+  // Hide optional columns entirely when nothing in the current plan has data for them,
+  // so plans without invention/BvB/market data don't drag in empty columns.
+  const hiddenCols = useMemo(() => {
+    const hidden = new Set<SortKey>();
+    if (!sorted.some((n) => n.kind.type === "invention")) {
+      hidden.add("decrypter");
+    }
+    if (!sorted.some((n) => n.bvbCosts !== null)) hidden.add("bvb");
+    if (!sorted.some((n) => n.quantityToBuy > 0 && getBestSource(n.typeId, n.unitVolume) !== null)) {
+      hidden.add("bestSrc");
+    }
+    if (!sorted.some((n) => getTrend(n.typeId) !== null)) hidden.add("trend");
+    return hidden;
+  }, [sorted, getBestSource, getTrend]);
+
+  const visibleCols = useMemo(
+    () => COLS.filter((col) => !hiddenCols.has(col.key)),
+    [hiddenCols],
+  );
+
   function handleExportCsv() {
-    const headers = ["Item", "Kind", "Runs", "Needed", "Produced", "On Hand", "In Jobs", "To Buy", "Job Cost ISK", "Est Sell ISK", "30d Avg ISK", "Buy m3", "Buy vs Build"];
+    const headers = ["Item", "Kind", "Runs", "Needed", "Produced", "On Hand", "In Jobs", "To Buy", "Job Cost ISK", "Est Sell ISK", "30d Avg ISK", "Buy m3", "Decrypter", "Best Decrypter", "Buy vs Build"];
     const rows = sorted.map((n) => [
       n.typeName,
       kindLabel(n),
@@ -423,6 +473,10 @@ export function GridView() {
       n.bestSellPrice ?? null,
       n.adjusted30d ?? null,
       n.quantityToBuy > 0 ? n.quantityToBuy * n.unitVolume : null,
+      n.kind.type === "invention" ? (n.kind.decrypter?.typeName ?? "None") : null,
+      n.kind.type === "invention"
+        ? (n.kind.bestDecrypterTypeId !== null ? decrypterNames.get(n.kind.bestDecrypterTypeId) ?? null : "None")
+        : null,
       n.bvbCosts !== null
         ? (n.bvbCosts.delta >= 0 ? `Build saves ${n.bvbCosts.delta.toFixed(0)}` : `Buy saves ${Math.abs(n.bvbCosts.delta).toFixed(0)}`)
         : null,
@@ -441,6 +495,19 @@ export function GridView() {
     );
     copyText(tsv).then(() => {
       setCopyLabel("done-buy");
+      setTimeout(() => setCopyLabel(null), 1500);
+    }).catch(() => {});
+  }
+
+  function handleCopyAssetsList() {
+    const ownedItems = sorted.filter((n) => n.quantityOnHand + n.quantityFromHangar > 0);
+    if (ownedItems.length === 0) return;
+    const tsv = buildTsv(
+      ["Item", "Qty Already Owned"],
+      ownedItems.map((n) => [n.typeName, n.quantityOnHand + n.quantityFromHangar]),
+    );
+    copyText(tsv).then(() => {
+      setCopyLabel("done-assets");
       setTimeout(() => setCopyLabel(null), 1500);
     }).catch(() => {});
   }
@@ -564,6 +631,14 @@ export function GridView() {
         </button>
         <button
           className="gv-export-btn"
+          onClick={handleCopyAssetsList}
+          title="Copy items already owned (assets + virtual hangar) as tab-separated text — what to pull instead of buy"
+          disabled={!sorted.some((n) => n.quantityOnHand + n.quantityFromHangar > 0)}
+        >
+          {copyLabel === "done-assets" ? "Copied!" : "Copy assets list"}
+        </button>
+        <button
+          className="gv-export-btn"
           onClick={handleExportCsv}
           title="Download the full grid as a CSV file"
         >
@@ -576,7 +651,7 @@ export function GridView() {
         <table className="gv-table">
           <thead>
             <tr>
-              {COLS.map((col) => (
+              {visibleCols.map((col) => (
                 <th
                   key={col.key}
                   className={`gv-th gv-th-${col.align}${sortKey === col.key ? " gv-th-active" : ""}`}
@@ -600,7 +675,7 @@ export function GridView() {
               >
                 <td className="gv-td gv-td-name">
                   <div className="gv-name-wrap">
-                    <TypeIcon typeId={node.typeId} variant="icon" size={32} displaySize={18} alt="" />
+                    <TypeIcon typeId={node.typeId} variant={blueprintIconVariant(node)} size={32} displaySize={16} alt="" />
                     <span className="gv-name">{node.typeName}</span>
                   </div>
                 </td>
@@ -624,47 +699,86 @@ export function GridView() {
                 >
                   {node.quantityToBuy > 0 ? fmtVol(node.quantityToBuy * node.unitVolume) : "—"}
                 </td>
-                <td className="gv-td">
-                  {(() => {
-                    if (node.quantityToBuy === 0) return <span className="gv-muted">—</span>;
-                    const src = getBestSource(node.typeId, node.unitVolume);
-                    if (!src) return <span className="gv-muted">—</span>;
-                    return (
-                      <span
-                        className={src.isLocal ? "gv-src-local" : "gv-src-import"}
-                        title={`Landed cost: ${fmtIsk(src.landedCost)}/unit — saves ${fmtIsk(src.savings)} vs next option${!src.isLocal ? ` (includes ${fmtIsk(node.unitVolume * freightIskPerM3)}/unit freight)` : ""}`}
-                      >
-                        {src.label}
-                        {src.savings > 0 && <span className="gv-src-saving"> −{fmtIsk(src.savings)}</span>}
+                {!hiddenCols.has("bestSrc") && (
+                  <td className="gv-td">
+                    {(() => {
+                      if (node.quantityToBuy === 0) return <span className="gv-muted">—</span>;
+                      const src = getBestSource(node.typeId, node.unitVolume);
+                      if (!src) return <span className="gv-muted">—</span>;
+                      return (
+                        <span
+                          className={src.isLocal ? "gv-src-local" : "gv-src-import"}
+                          title={`Landed cost: ${fmtIsk(src.landedCost)}/unit — saves ${fmtIsk(src.savings)} vs next option${!src.isLocal ? ` (includes ${fmtIsk(node.unitVolume * freightIskPerM3)}/unit freight)` : ""}`}
+                        >
+                          {src.label}
+                          {src.savings > 0 && <span className="gv-src-saving"> −{fmtIsk(src.savings)}</span>}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                )}
+                {!hiddenCols.has("trend") && (
+                  <td className="gv-td gv-td-right">
+                    {(() => {
+                      const t = getTrend(node.typeId);
+                      if (!t) return <span className="gv-muted">—</span>;
+                      const up = t.pct >= 0;
+                      const abs = Math.abs(t.pct).toFixed(1);
+                      return (
+                        <span
+                          className={up ? "gv-trend-up" : "gv-trend-down"}
+                          title={`${up ? "+" : ""}${t.pct.toFixed(2)}% over ${t.days} days`}
+                        >
+                          {up ? "↑" : "↓"} {abs}%
+                        </span>
+                      );
+                    })()}
+                  </td>
+                )}
+                {!hiddenCols.has("decrypter") && (
+                  <td className="gv-td gv-td-decrypter" onClick={(e) => e.stopPropagation()}>
+                    {node.kind.type === "invention" ? (
+                      <Select
+                        className="gv-decrypter-select"
+                        value={String(decrypterOverrideMap.get(node.typeId) ?? "")}
+                        onChange={(val) => {
+                          if (val === "") clearDecrypterChoice(node.typeId);
+                          else setDecrypterChoice(node.typeId, Number(val));
+                        }}
+                        options={[
+                          {
+                            value: "",
+                            label: `Auto (${
+                              node.kind.bestDecrypterTypeId !== null
+                                ? decrypterNames.get(node.kind.bestDecrypterTypeId) ?? "—"
+                                : "None"
+                            })`,
+                          },
+                          ...decrypterOptions.slice(1),
+                        ]}
+                        title={
+                          (node.kind.decrypter
+                            ? `${node.kind.isOverridden ? "Overridden" : "Auto-picked"}: ${node.kind.decrypter.typeName} — saves ${fmtIsk(node.kind.iskSavedVsNoDecrypter)} vs no decrypter.`
+                            : "No decrypter applied — auto-pick determined it wasn't worth the added cost.") +
+                          " Change re-solves are not automatic — click Solve again to apply."
+                        }
+                      />
+                    ) : (
+                      <span className="gv-muted">—</span>
+                    )}
+                  </td>
+                )}
+                {!hiddenCols.has("bvb") && (
+                  <td className="gv-td gv-td-right">
+                    {node.bvbCosts !== null ? (
+                      <span className={node.bvbCosts.delta >= 0 ? "gv-bvb-build" : "gv-bvb-buy"}>
+                        {node.bvbCosts.delta >= 0
+                          ? `Build saves ${fmtIsk(node.bvbCosts.delta)}`
+                          : `Buy saves ${fmtIsk(Math.abs(node.bvbCosts.delta))}`}
                       </span>
-                    );
-                  })()}
-                </td>
-                <td className="gv-td gv-td-right">
-                  {(() => {
-                    const t = getTrend(node.typeId);
-                    if (!t) return <span className="gv-muted">—</span>;
-                    const up = t.pct >= 0;
-                    const abs = Math.abs(t.pct).toFixed(1);
-                    return (
-                      <span
-                        className={up ? "gv-trend-up" : "gv-trend-down"}
-                        title={`${up ? "+" : ""}${t.pct.toFixed(2)}% over ${t.days} days`}
-                      >
-                        {up ? "↑" : "↓"} {abs}%
-                      </span>
-                    );
-                  })()}
-                </td>
-                <td className="gv-td gv-td-right">
-                  {node.bvbCosts !== null ? (
-                    <span className={node.bvbCosts.delta >= 0 ? "gv-bvb-build" : "gv-bvb-buy"}>
-                      {node.bvbCosts.delta >= 0
-                        ? `Build saves ${fmtIsk(node.bvbCosts.delta)}`
-                        : `Buy saves ${fmtIsk(Math.abs(node.bvbCosts.delta))}`}
-                    </span>
-                  ) : "—"}
-                </td>
+                    ) : "—"}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

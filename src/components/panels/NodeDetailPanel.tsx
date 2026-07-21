@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useUiStore, useSolverStore, useSettingsStore, useMarketStore } from "../../store";
-import { TypeIcon } from "../common";
+import { TypeIcon, blueprintIconVariant } from "../common";
 import { computeNodeCosts } from "../../lib/buildCost";
 import { getSystemCostInfo, getCheapestSystems } from "../../api";
 import type { BuildNode, Decision, SystemCostInfo, CheapestSystemEntry } from "../../api";
@@ -36,6 +36,7 @@ export function NodeDetailPanel() {
   const clearDecision    = useSettingsStore((s) => s.clearDecision);
   const blueprintOverrides = useSettingsStore((s) => s.blueprintOverrides);
   const setOverride      = useSettingsStore((s) => s.setOverride);
+  const decrypterSpecs   = useSettingsStore((s) => s.decrypterSpecs);
 
   // Market prices — subscribe so panel re-renders when prices load.
   const marketPrices   = useMarketStore((s) => s.prices);
@@ -175,7 +176,13 @@ export function NodeDetailPanel() {
 
       {/* ── Header ── */}
       <div className="ndp-header">
-        <TypeIcon typeId={node.typeId} variant="render" size={64} displaySize={48} alt={node.typeName} />
+        <TypeIcon
+          typeId={node.typeId}
+          variant={node.categoryId === 9 ? blueprintIconVariant(node) : "render"}
+          size={64}
+          displaySize={48}
+          alt={node.typeName}
+        />
         <div className="ndp-header-info">
           <div className="ndp-name">{node.typeName}</div>
           <div className={`ndp-kind ${node.kind.type}`}>
@@ -473,6 +480,15 @@ export function NodeDetailPanel() {
             <span>Runs / BPC</span>
             <span>{node.kind.runsPerBpc}</span>
           </div>
+          {node.kind.runsFromStock > 0 && (
+            <div
+              className="ndp-invention-stat"
+              title="Runs already covered by your owned BPC stock before this invention was planned — reduces the attempts/datacores/decrypters below."
+            >
+              <span>Runs From Stock</span>
+              <span className="ndp-good">{node.kind.runsFromStock}</span>
+            </div>
+          )}
           <div
             className="ndp-invention-stat"
             title="Material Efficiency of the invented BPC. Higher ME = fewer materials wasted per manufacturing run. Certain decrypters increase this."
@@ -487,15 +503,32 @@ export function NodeDetailPanel() {
             <span>Output TE</span>
             <span>{node.kind.outputTe}%</span>
           </div>
-          {node.kind.decrypter && (
-            <div
-              className="ndp-invention-stat"
-              title={`Decrypter modifies: probability ×${node.kind.decrypter.probabilityMultiplier.toFixed(2)}, runs +${node.kind.decrypter.runModifier}, ME +${node.kind.decrypter.meModifier}, TE +${node.kind.decrypter.teModifier}`}
-            >
-              <span>Decrypter</span>
-              <span>{node.kind.decrypter.typeName}</span>
-            </div>
-          )}
+          <div
+            className="ndp-invention-stat"
+            title={
+              (node.kind.decrypter
+                ? `Decrypter modifies: probability ×${node.kind.decrypter.probabilityMultiplier.toFixed(2)}, runs +${node.kind.decrypter.runModifier}, ME +${node.kind.decrypter.meModifier}, TE +${node.kind.decrypter.teModifier}. ${node.kind.isOverridden ? "Manually overridden." : "Auto-picked as cheapest option."}`
+                : "No decrypter applied — auto-pick determined it wasn't worth the added cost.") +
+              " Override this from the Decrypter column in the grid; re-solve to apply changes."
+            }
+          >
+            <span>Decrypter</span>
+            <span>{node.kind.decrypter ? node.kind.decrypter.typeName : "None"}</span>
+          </div>
+          <div className="ndp-invention-stat" title="What auto-pick would choose based on current prices. Matches the Decrypter above unless you've overridden it.">
+            <span>Best Decrypter</span>
+            <span>
+              {(() => {
+                const bestId = node.kind.type === "invention" ? node.kind.bestDecrypterTypeId : null;
+                if (bestId === null) return "None";
+                return decrypterSpecs.find((d) => d.typeId === bestId)?.name ?? "—";
+              })()}
+            </span>
+          </div>
+          <div className="ndp-invention-stat" title="ISK saved (per invented BPC) by the applied choice vs. using no decrypter at all.">
+            <span>ISK Saved vs. No Decrypter</span>
+            <span>{fmtIsk(node.kind.iskSavedVsNoDecrypter)}</span>
+          </div>
 
           {/* Invention improvement tips */}
           <div className="ndp-invention-tips">
@@ -539,7 +572,7 @@ export function NodeDetailPanel() {
           <div className="ndp-materials">
             {node.inputs.map((mat) => (
               <div key={mat.typeId} className="ndp-mat-row">
-                <TypeIcon typeId={mat.typeId} variant="icon" size={32} displaySize={20} alt="" />
+                <TypeIcon typeId={mat.typeId} variant={blueprintIconVariant(mat)} size={32} displaySize={20} alt="" />
                 <span className="ndp-mat-name">{mat.typeName}</span>
                 <span className="ndp-mat-qty">{fmt(mat.quantityNeeded)}</span>
               </div>
