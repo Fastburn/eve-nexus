@@ -20,17 +20,29 @@ function collectTypeIds(roots: BuildNode[]): number[] {
 // Check solved nodes for missing data and return human-readable warnings.
 function detectWarnings(roots: BuildNode[]): string[] {
   const warnings: string[] = [];
-  let missingJobCost = false;
+  // Track which job type (Manufacturing/Reaction) is missing a profile, and
+  // one example item name per job type, so the warning tells the user
+  // exactly what to fix instead of a generic "some items" message. This
+  // matters because an item's activity isn't always what it looks like —
+  // e.g. R.A.M.- intermediate "Commodity"-category items are manufactured,
+  // not reacted, even though reactions also produce Commodity-category
+  // outputs, so the two activities need separate structure profiles.
+  const missingByJobType = new Map<string, string>();
 
   function visit(node: BuildNode) {
-    const isBuildNode = node.kind.type === "manufacturing" || node.kind.type === "reaction";
-    if (isBuildNode && node.jobCost === null) missingJobCost = true;
+    if (node.kind.type === "manufacturing" && node.jobCost === null) {
+      if (!missingByJobType.has("Manufacturing")) missingByJobType.set("Manufacturing", node.typeName);
+    } else if (node.kind.type === "reaction" && node.jobCost === null) {
+      if (!missingByJobType.has("Reaction")) missingByJobType.set("Reaction", node.typeName);
+    }
     for (const child of node.inputs) visit(child);
   }
   for (const root of roots) visit(root);
 
-  if (missingJobCost) {
-    warnings.push("Job costs are missing for some items. Set a structure profile with a solar system in Settings → Structure Profiles.");
+  for (const [jobType, exampleName] of missingByJobType) {
+    warnings.push(
+      `Job cost is missing for "${exampleName}" (and possibly other items) because no ${jobType} structure profile with a solar system is set. Add one in Settings → Structure Profiles.`
+    );
   }
 
   return warnings;
