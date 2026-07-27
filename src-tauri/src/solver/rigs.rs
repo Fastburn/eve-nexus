@@ -51,8 +51,12 @@ const CHARGE: &[&str] = &["Charge"];
 const COMMODITY: &[&str] = &["Commodity"];
 const DRONE_FIGHTER: &[&str] = &["Drone", "Fighter"];
 const EQUIPMENT: &[&str] = &["Module", "Deployable", "Implant"];
-const STRUCTURE: &[&str] = &["Structure", "Structure Module"];
-const REACTION: &[&str] = &["Composite", "Biochemical", "Hybrid", "Commodity", "Material"];
+// "Material" here is fuel blocks, the only Manufacturing-activity product in
+// that SDE category — confirmed against EVE Ref's own description of this
+// rig, which explicitly lists fuel blocks alongside structure components/
+// modules/hulls.
+const STRUCTURE: &[&str] = &["Structure", "Structure Module", "Material"];
+const REACTION: &[&str] = &["Material"];
 
 pub const RIGS: &[RigSpec] = &[
     // ── Advanced Component ──────────────────────────────────────────────────
@@ -121,7 +125,8 @@ pub const RIGS: &[RigSpec] = &[
     RigSpec { type_id: 37160, name: "Standup M-Set Equipment Manufacturing Time Efficiency I", tier: 1, me_bonus: 0.0, te_bonus: 0.20, job_type: JobType::Manufacturing, category_names: EQUIPMENT },
     RigSpec { type_id: 37161, name: "Standup M-Set Equipment Manufacturing Time Efficiency II", tier: 2, me_bonus: 0.0, te_bonus: 0.24, job_type: JobType::Manufacturing, category_names: EQUIPMENT },
 
-    // ── Structure (components, modules, rigs, Upwell hulls, fuel blocks) ────
+    // ── Structure (components, modules, rigs, Upwell hulls, and fuel blocks —
+    // fuel blocks fall in the "Material" SDE category, see STRUCTURE const) ─
     RigSpec { type_id: 43875, name: "Standup M-Set Structure Manufacturing Material Efficiency I", tier: 1, me_bonus: 0.02, te_bonus: 0.0, job_type: JobType::Manufacturing, category_names: STRUCTURE },
     RigSpec { type_id: 43874, name: "Standup M-Set Structure Manufacturing Material Efficiency II", tier: 2, me_bonus: 0.024, te_bonus: 0.0, job_type: JobType::Manufacturing, category_names: STRUCTURE },
     RigSpec { type_id: 43876, name: "Standup M-Set Structure Manufacturing Time Efficiency I", tier: 1, me_bonus: 0.0, te_bonus: 0.20, job_type: JobType::Manufacturing, category_names: STRUCTURE },
