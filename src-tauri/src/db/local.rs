@@ -1676,7 +1676,8 @@ impl LocalDb {
         limit: usize,
     ) -> LocalResult<Vec<(crate::types::SolarSystemId, String)>> {
         let conn = self.conn()?;
-        let pattern = format!("{prefix}%");
+        let escaped = crate::db::escape_like(prefix);
+        let pattern = format!("{escaped}%");
         let mut stmt = conn.prepare_cached(
             "SELECT system_id, system_name FROM system_names
              WHERE system_name LIKE ?1 ESCAPE '\\'
