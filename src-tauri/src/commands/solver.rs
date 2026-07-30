@@ -132,8 +132,11 @@ pub(super) fn assemble_solver_input(
         .collect();
     for profile in profiles.values_mut() {
         if !profile.installed_rigs.is_empty() {
-            profile.rig_bonuses =
-                solver::rigs::expand_installed_rigs(&profile.installed_rigs, &category_ids_by_name);
+            profile.rig_bonuses = solver::rigs::expand_installed_rigs(
+                &profile.installed_rigs,
+                profile.job_type,
+                &category_ids_by_name,
+            );
         }
     }
 

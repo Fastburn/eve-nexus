@@ -151,8 +151,16 @@ pub fn list_rigs() -> &'static [RigSpec] {
 /// bonuses are combined independently by taking the larger of each
 /// (correctly handles one ME rig + one TE rig both targeting the same
 /// category, while still tolerating an accidental duplicate pick).
+///
+/// `job_type` is the owning profile's activity; any installed rig whose own
+/// `job_type` doesn't match is skipped. This matters because Manufacturing's
+/// `STRUCTURE` rigs and Reaction's `REACTION` rig both resolve to the
+/// "Material" SDE category (fuel blocks vs. reaction intermediates) — without
+/// this check, a rig left over from switching a profile's job type could
+/// silently bleed its bonus into the wrong activity.
 pub fn expand_installed_rigs(
     installed: &[TypeId],
+    job_type: JobType,
     category_ids_by_name: &HashMap<String, i32>,
 ) -> Vec<RigBonus> {
     let mut acc: HashMap<i32, (f64, f64)> = HashMap::new();
@@ -160,6 +168,9 @@ pub fn expand_installed_rigs(
         let Some(spec) = RIGS.iter().find(|r| r.type_id == type_id) else {
             continue;
         };
+        if spec.job_type != job_type {
+            continue;
+        }
         for &name in spec.category_names {
             let Some(&category_id) = category_ids_by_name.get(name) else {
                 continue;
@@ -184,7 +195,7 @@ mod tests {
         // Basic Medium Ship ME I (37146) + Basic Large Ship ME I (43732) both
         // resolve to category 6 with identical 0.02 me_bonus — must collapse
         // to one row, not sum (which would double the bonus).
-        let bonuses = expand_installed_rigs(&[37146, 43732], &categories);
+        let bonuses = expand_installed_rigs(&[37146, 43732], JobType::Manufacturing, &categories);
         assert_eq!(bonuses.len(), 1);
         assert_eq!(bonuses[0].category_id, 6);
         assert!((bonuses[0].me_bonus - 0.02).abs() < 1e-9);
@@ -195,7 +206,7 @@ mod tests {
     fn expand_combines_me_and_te_rigs_for_same_category() {
         let categories: HashMap<String, i32> = [("Ship".to_string(), 6)].into_iter().collect();
         // One ME rig + one TE rig targeting Ship should both apply.
-        let bonuses = expand_installed_rigs(&[37154, 37162], &categories);
+        let bonuses = expand_installed_rigs(&[37154, 37162], JobType::Manufacturing, &categories);
         assert_eq!(bonuses.len(), 1);
         assert!((bonuses[0].me_bonus - 0.02).abs() < 1e-9);
         assert!((bonuses[0].te_bonus - 0.20).abs() < 1e-9);
@@ -204,14 +215,29 @@ mod tests {
     #[test]
     fn expand_ignores_unmatched_category_names() {
         let categories: HashMap<String, i32> = HashMap::new();
-        let bonuses = expand_installed_rigs(&[37154], &categories);
+        let bonuses = expand_installed_rigs(&[37154], JobType::Manufacturing, &categories);
         assert!(bonuses.is_empty());
     }
 
     #[test]
     fn expand_ignores_unknown_type_ids() {
         let categories: HashMap<String, i32> = [("Ship".to_string(), 6)].into_iter().collect();
-        let bonuses = expand_installed_rigs(&[999_999], &categories);
+        let bonuses = expand_installed_rigs(&[999_999], JobType::Manufacturing, &categories);
         assert!(bonuses.is_empty());
+    }
+
+    #[test]
+    fn expand_does_not_leak_reaction_rig_into_manufacturing_material_category() {
+        // Both the Structure Manufacturing rig (fuel blocks) and the Reactor
+        // Efficiency rig (reaction intermediates) resolve to "Material" — a
+        // Reaction-job-type rig ID must never contribute a bonus when the
+        // profile being expanded is Manufacturing, and vice versa.
+        let categories: HashMap<String, i32> = [("Material".to_string(), 4)].into_iter().collect();
+        let mfg_bonuses = expand_installed_rigs(&[46496], JobType::Manufacturing, &categories);
+        assert!(mfg_bonuses.is_empty(), "Reaction rig must not apply to a Manufacturing profile");
+
+        let reaction_bonuses = expand_installed_rigs(&[46496], JobType::Reaction, &categories);
+        assert_eq!(reaction_bonuses.len(), 1);
+        assert_eq!(reaction_bonuses[0].category_id, 4);
     }
 }
