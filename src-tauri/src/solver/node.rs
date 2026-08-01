@@ -227,9 +227,13 @@ fn build_industry_node(
             (eff_me, eff_te)
         }
     } else {
+        // Clamp to the game's valid ME/TE ranges — an out-of-range value here
+        // (e.g. from a corrupted saved plan) would otherwise flow into
+        // `apply_me`'s `bp_factor` and silently floor to a wrong-but-plausible
+        // 1-material-per-run result instead of erroring.
         (
-            state.input.me_levels.get(&type_id).copied().unwrap_or(10),
-            state.input.te_levels.get(&type_id).copied().unwrap_or(20),
+            state.input.me_levels.get(&type_id).copied().unwrap_or(10).clamp(0, 10),
+            state.input.te_levels.get(&type_id).copied().unwrap_or(20).clamp(0, 20),
         )
     };
 
