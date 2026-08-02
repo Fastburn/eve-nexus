@@ -64,7 +64,7 @@ export function ScheduleView() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
-  function fetch() {
+  function refreshSchedule() {
     if (targets.length === 0) return;
     setLoading(true);
     setError(null);
@@ -88,12 +88,12 @@ export function ScheduleView() {
   // out of sync with those settings.
   useEffect(() => {
     if (schedule) { setStale(true); return; }
-    fetch();
+    refreshSchedule();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, decrypterChoices]);
 
   useEffect(() => {
-    if (!schedule) fetch();
+    if (!schedule) refreshSchedule();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -143,7 +143,7 @@ export function ScheduleView() {
     return (
       <div className="schedule-error">
         <span>Failed to compute schedule: {error}</span>
-        <button onClick={fetch}>Retry</button>
+        <button onClick={refreshSchedule}>Retry</button>
       </div>
     );
   }
@@ -158,7 +158,7 @@ export function ScheduleView() {
       {stale && (
         <div className="schedule-stale">
           Targets changed.
-          <button className="schedule-refresh-btn" onClick={fetch}>Refresh</button>
+          <button className="schedule-refresh-btn" onClick={refreshSchedule}>Refresh</button>
         </div>
       )}
 

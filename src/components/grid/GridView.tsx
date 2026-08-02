@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Eve Nexus contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useSolverStore, useUiStore, useMarketStore, usePlanStore, useSettingsStore } from "../../store";
 import { TypeIcon, Select, blueprintIconVariant } from "../common";
 import { computeNodeCosts } from "../../lib/buildCost";
@@ -264,6 +264,7 @@ export function GridView() {
   const [filter, setFilter]         = useState("");
   const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
   const [copyLabel, setCopyLabel]   = useState<"buy" | "done-buy" | "done-assets" | null>(null);
+  const copyLabelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flat = useMemo(() => flattenNodes(nodes), [nodes]);
 
@@ -495,7 +496,8 @@ export function GridView() {
     );
     copyText(tsv).then(() => {
       setCopyLabel("done-buy");
-      setTimeout(() => setCopyLabel(null), 1500);
+      if (copyLabelTimer.current) clearTimeout(copyLabelTimer.current);
+      copyLabelTimer.current = setTimeout(() => setCopyLabel(null), 1500);
     }).catch(() => {});
   }
 
@@ -508,7 +510,8 @@ export function GridView() {
     );
     copyText(tsv).then(() => {
       setCopyLabel("done-assets");
-      setTimeout(() => setCopyLabel(null), 1500);
+      if (copyLabelTimer.current) clearTimeout(copyLabelTimer.current);
+      copyLabelTimer.current = setTimeout(() => setCopyLabel(null), 1500);
     }).catch(() => {});
   }
 
