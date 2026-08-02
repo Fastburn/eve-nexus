@@ -129,13 +129,14 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       const entries = await fetchPriceHistory(typeIds);
       set((s) => {
         const history = { ...s.history };
+        const touchedKeys = new Set<string>();
         for (const entry of entries) {
           const key = historyKey(entry.regionId, entry.typeId);
-          if (!history[key]) history[key] = [];
-          history[key].push(entry);
+          history[key] = history[key] ? [...history[key], entry] : [entry];
+          touchedKeys.add(key);
         }
-        // Sort each key newest-first and deduplicate by date.
-        for (const key of Object.keys(history)) {
+        // Sort each touched key newest-first and deduplicate by date.
+        for (const key of touchedKeys) {
           const seen = new Set<string>();
           history[key] = history[key]
             .filter((e) => { const dup = seen.has(e.date); seen.add(e.date); return !dup; })

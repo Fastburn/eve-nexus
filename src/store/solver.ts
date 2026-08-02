@@ -64,6 +64,10 @@ interface SolverState {
   clear: () => void;
 }
 
+// Bumped on every solve() call so a slower, superseded request can detect
+// it's stale and drop its result instead of clobbering a newer one.
+let solveGeneration = 0;
+
 export const useSolverStore = create<SolverState>((set) => ({
   nodes: [],
   solving: false,
@@ -71,9 +75,11 @@ export const useSolverStore = create<SolverState>((set) => ({
   warnings: [],
 
   solve: async (request) => {
+    const generation = ++solveGeneration;
     set({ solving: true, error: null, warnings: [] });
     try {
       const nodes = await solveBuildPlan(request);
+      if (generation !== solveGeneration) return; // a newer solve() superseded this one
       const warnings = detectWarnings(nodes);
       set({ nodes, solving: false, warnings });
       // Fire-and-forget: fetch market prices and history for every item in the plan.
@@ -84,6 +90,7 @@ export const useSolverStore = create<SolverState>((set) => ({
         market.fetchHistory(typeIds).catch(() => {/* non-fatal */});
       }
     } catch (e) {
+      if (generation !== solveGeneration) return;
       const msg = e instanceof Error ? e.message
         : typeof e === "string" ? e
         : (e as { message?: string })?.message ?? JSON.stringify(e);
