@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Eve Nexus contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMarketStore } from "../store/market";
 import { usePlanStore } from "../store/plan";
 import {
@@ -85,7 +85,7 @@ export function RestockView() {
       deficitRows.map((r) => [
         r.typeName || `Type ${r.typeId}`,
         r.deficit,
-        getBestSell(r.typeId) ?? null,
+        getLowestSellPrice(r.typeId) ?? null,
       ]),
     );
     copyText(tsv).then(() => {
@@ -98,7 +98,7 @@ export function RestockView() {
   function handleExportCsv() {
     const headers = ["Item", "Real Stock", "On Market", "Velocity (30d)", "Target", "Deficit", "Best Sell ISK", "Margin %"];
     const csvRows = rows.map((r) => {
-      const sell   = getBestSell(r.typeId);
+      const sell   = getLowestSellPrice(r.typeId);
       const margin = getMarginPctFor(r.typeId);
       return [
         r.typeName || `Type ${r.typeId}`,
@@ -118,22 +118,33 @@ export function RestockView() {
     await loadData();
   }
 
-  // Best sell = min across all regions (what a buyer pays — i.e. what you earn)
-  function getBestSell(typeId: number): number | null {
-    const entries = Object.values(marketPrices).filter((p) => p.typeId === typeId && p.bestSell != null);
-    if (entries.length === 0) return null;
-    return Math.min(...entries.map((p) => p.bestSell!));
+  // Per-type (lowest sell, highest buy) across all regions, precomputed once
+  // per marketPrices change instead of re-scanning all price entries per row
+  // on every render. Sell uses the conservative (min) aggregate so restock
+  // margin math doesn't overstate profit; buy uses the max (what you'd pay
+  // to source). Not to be confused with MarketView's getBestSellEntry, which
+  // takes the opposite (max) aggregate to find where to actually sell.
+  const priceExtremesByType = useMemo(() => {
+    const map = new Map<number, { lowestSell: number | null; highestBuy: number | null }>();
+    for (const p of Object.values(marketPrices)) {
+      const entry = map.get(p.typeId) ?? { lowestSell: null, highestBuy: null };
+      if (p.bestSell != null) entry.lowestSell = entry.lowestSell === null ? p.bestSell : Math.min(entry.lowestSell, p.bestSell);
+      if (p.bestBuy != null) entry.highestBuy = entry.highestBuy === null ? p.bestBuy : Math.max(entry.highestBuy, p.bestBuy);
+      map.set(p.typeId, entry);
+    }
+    return map;
+  }, [marketPrices]);
+
+  function getLowestSellPrice(typeId: number): number | null {
+    return priceExtremesByType.get(typeId)?.lowestSell ?? null;
   }
 
-  // Best buy = max across all regions (highest buy order — what you'd pay to source)
   function getBestBuy(typeId: number): number | null {
-    const entries = Object.values(marketPrices).filter((p) => p.typeId === typeId && p.bestBuy != null);
-    if (entries.length === 0) return null;
-    return Math.max(...entries.map((p) => p.bestBuy!));
+    return priceExtremesByType.get(typeId)?.highestBuy ?? null;
   }
 
   function getMarginPctFor(typeId: number): number | null {
-    const sell = getBestSell(typeId);
+    const sell = getLowestSellPrice(typeId);
     const buy  = getBestBuy(typeId);
     if (sell == null || buy == null || sell <= 0) return null;
     return ((sell - buy) / sell) * 100;
@@ -388,7 +399,7 @@ export function RestockView() {
             </div>
 
             {visibleRows.map((row) => {
-              const sell    = getBestSell(row.typeId);
+              const sell    = getLowestSellPrice(row.typeId);
               const margin  = getMarginPctFor(row.typeId);
               const lowMargin = margin !== null && margin < marginPct;
               const hasDeficit = row.deficit > 0;

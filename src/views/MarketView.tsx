@@ -479,7 +479,10 @@ export function MarketView() {
     });
   }
 
-  function getBestSell(typeId: number) {
+  // Highest sell price across all regions — where you'd actually sell this item.
+  // Not to be confused with RestockView's getLowestSellPrice, which takes the
+  // opposite (min) aggregate for its own conservative-margin purposes.
+  function getBestSellEntry(typeId: number) {
     const entries = getPricesForType(typeId).filter((p) => p.bestSell != null);
     if (!entries.length) return null;
     return entries.reduce((best, p) =>
@@ -745,7 +748,7 @@ export function MarketView() {
               </div>
 
               {visibleTrackedRows.map((row) => {
-                const bestEntry  = getBestSell(row.typeId);
+                const bestEntry  = getBestSellEntry(row.typeId);
                 const margin     = getMarginPct(row.typeId);
                 const lowMargin  = margin !== null && margin < marginPct;
                 const hasDeficit = row.deficit > 0;
