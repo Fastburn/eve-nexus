@@ -2,7 +2,7 @@
 
 ## [0.0.3] - Unreleased
 
-4 new features · 3 improvements · 8 bug fixes
+4 new features · 4 improvements · 15 bug fixes
 
 ### Added
 
@@ -22,6 +22,8 @@ Database write performance. Bulk upserts for system names, structure names, and 
 
 Copy icons in the market price table now use inline icons instead of a Unicode glyph that rendered as a blank box on some platforms.
 
+Restock's lowest-sell-price lookup is now precomputed into a map instead of scanning all price entries per row, matching the same optimization already applied to the main grid.
+
 ### Fixed
 
 Profile auto-assignment now triggers correctly when loading a saved plan. Previously the backfill only watched for profile changes, not target changes, so opening a plan with unassigned targets would leave them without a profile until the next app restart.
@@ -39,6 +41,22 @@ The ESI error budget tracker no longer locks up permanently once it hits zero. I
 Market price fetching now requests all configured hubs concurrently instead of one at a time, matching what the code already claimed to do.
 
 Fixed a race condition where refreshing multiple characters at once could invalidate a character's refresh token, since EVE SSO issues a new single-use refresh token on every use. Refreshes for the same character are now serialized so concurrent ESI calls can't step on each other. When a refresh token is found to be permanently dead, the session-expired message now names the character instead of showing a raw ID.
+
+The Windows uninstaller now force-closes any running instance of Eve Nexus before deleting your data. Previously, if the app or a lingering background process still had its database files open, the delete-my-data step would silently fail and leave old plans and settings behind for the next install to pick back up.
+
+The "job costs are missing" warning now names the affected item and the specific job type (Manufacturing or Reaction) that needs a structure profile, instead of a generic "some items" message. Some intermediates, like R.A.M.- components, are manufactured rather than reacted even though they share a market category with reaction outputs, which made it hard to tell which profile was actually missing.
+
+Structure Manufacturing rigs (Standup M-Set Structure Manufacturing ME/TE) now correctly bonus fuel block production. Fuel blocks were being skipped because they fall in the "Material" SDE category rather than "Structure", which the rig's own bonus category list didn't include. Also removed a stale, misleading "Commodity" category from the Reaction rig's bonus list — no reaction ever actually produces a Commodity-category item, so it was showing an ME/TE bonus in the UI that could never apply to anything.
+
+Fixed a rig bonus leak introduced by the fuel block fix above: since Manufacturing and Reaction rigs could now both resolve to the "Material" category, an installed rig's bonus is now filtered by job type so a Reaction rig can no longer apply its ME/TE bonus to a Manufacturing job (or vice versa).
+
+Solar system name search no longer skips escaping for % and _ wildcards, matching the same fix already applied to type and blueprint search.
+
+ME and TE levels loaded from a saved plan are now clamped to their valid game ranges (0-10 ME, 0-20 TE). An out-of-range value from a corrupted save could previously flow into the cost calculation and silently floor to a wrong-but-plausible result instead of being caught.
+
+Price history entries fetched for the same item across multiple calls no longer get duplicated or left unsorted. Previously a shared history array could be mutated in place and the sort order wasn't guaranteed after merging new entries.
+
+The build plan solver now discards results from a stale, no-longer-current request instead of overwriting newer results if an older request happens to resolve last.
 
 ---
 
