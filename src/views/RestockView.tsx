@@ -13,6 +13,7 @@ import type { RestockRow } from "../api";
 import { TypePicker } from "../components/common/TypePicker";
 import type { TypeSummary } from "../api";
 import { buildCsv, buildTsv, downloadCsv, copyText } from "../lib/export";
+import { esiErrorMessage } from "../lib/format";
 import "./RestockView.css";
 
 const fmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
@@ -71,7 +72,7 @@ export function RestockView() {
       const data = await getRestockRows();
       setRows(data);
     } catch (e) {
-      setError(String(e));
+      setError(esiErrorMessage(e));
     } finally {
       setLoading(false);
     }

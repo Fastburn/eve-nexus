@@ -10,6 +10,7 @@ import {
   refreshEsiData,
 } from "../api";
 import type { CharacterId, CharacterInfo } from "../api";
+import { esiErrorMessage } from "../lib/format";
 
 interface CharactersState {
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -28,19 +29,6 @@ interface CharactersState {
   refreshAll: () => Promise<void>;
 }
 
-/** Extract a readable message from a Tauri command error (may be a plain string
- *  or a serialized CommandError object like { type: "invalidInput", message: "…" }). */
-function esiErrorMessage(e: unknown): string {
-  if (typeof e === "string") return e;
-  if (e && typeof e === "object") {
-    const obj = e as Record<string, unknown>;
-    if (typeof obj.message === "string") return obj.message;
-    if (typeof obj.type === "string") return obj.type;
-    try { return JSON.stringify(e); } catch { /* fall through */ }
-  }
-  return String(e);
-}
-
 export const useCharactersStore = create<CharactersState>((set, get) => ({
   characters: [],
   loading: false,
@@ -53,7 +41,7 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
       const characters = await listCharacters();
       set({ characters, loading: false });
     } catch (e) {
-      set({ loading: false, error: String(e) });
+      set({ loading: false, error: esiErrorMessage(e) });
     }
   },
 

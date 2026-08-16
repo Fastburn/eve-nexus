@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMarketStore } from "../store/market";
 import { useSolverStore, usePlanStore } from "../store";
 import { buildTsv, copyText } from "../lib/export";
-import { fmtIsk } from "../lib/format";
+import { fmtIsk, esiErrorMessage } from "../lib/format";
 import { TypePicker, TypeIcon, SystemComparison } from "../components/common";
 import { computeNodeCosts } from "../lib/buildCost";
 import {
@@ -362,7 +362,7 @@ export function MarketView() {
     setLoading(true);
     setError(null);
     try { setTrackedRows(await getRestockRows()); }
-    catch (e) { setError(String(e)); }
+    catch (e) { setError(esiErrorMessage(e)); }
     finally { setLoading(false); }
   }
 

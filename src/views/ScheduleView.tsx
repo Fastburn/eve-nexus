@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlanStore, useSettingsStore } from "../store";
 import { computeSchedule } from "../api";
 import { buildSolveRequest } from "../lib/solveRequest";
-import { fmtDuration } from "../lib/format";
+import { fmtDuration, esiErrorMessage } from "../lib/format";
 import { copyText } from "../lib/export";
 import type { PlanSchedule } from "../api";
 import "./ScheduleView.css";
@@ -78,7 +78,7 @@ export function ScheduleView() {
         setIndustrySlots(Math.max(1, s.derivedIndustrySlots));
         setScienceSlots(Math.max(1, s.derivedScienceSlots));
       })
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(esiErrorMessage(e)))
       .finally(() => setLoading(false));
   }
 

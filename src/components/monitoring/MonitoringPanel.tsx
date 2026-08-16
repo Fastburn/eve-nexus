@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { listIndustryJobs, getTypeNames, getSlotInfo } from "../../api";
 import { TypeIcon } from "../common";
+import { esiErrorMessage } from "../../lib/format";
 import type { IndustryJobRow, CharacterSlotInfo } from "../../api";
 import "./MonitoringPanel.css";
 
@@ -134,7 +135,7 @@ export function MonitoringPanel() {
         setTypeNames(names);
       }
     } catch (e) {
-      setError(String(e));
+      setError(esiErrorMessage(e));
     } finally {
       setLoading(false);
     }

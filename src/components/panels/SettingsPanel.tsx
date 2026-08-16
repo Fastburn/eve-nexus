@@ -13,6 +13,7 @@ import type { JobType, IndustryCategory, MarketRegion, RigSpecEntry, StructurePr
 import type { ThemeId } from "../../store";
 import "./SettingsPanel.css";
 import "../common/TypePicker.css";
+import { esiErrorMessage } from "../../lib/format";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -434,9 +435,7 @@ function MarketHubEditor({
         setStructFocusIdx(-1);
       } catch (e: unknown) {
         setStructResults([]);
-        const msg = e != null && typeof e === "object" && "message" in e
-          ? String((e as Record<string, unknown>).message) : String(e);
-        setStructError(msg);
+        setStructError(esiErrorMessage(e));
         setStructOpen(true);
       }
     }, 300);
@@ -497,9 +496,7 @@ function MarketHubEditor({
     try {
       await onSave(toSave);
     } catch (e: unknown) {
-      const msg = e != null && typeof e === "object" && "message" in e
-        ? String((e as Record<string, unknown>).message) : String(e);
-      setSaveError(msg);
+      setSaveError(esiErrorMessage(e));
     } finally {
       setSaving(false);
     }

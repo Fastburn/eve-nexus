@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { searchSolarSystems } from "../../api";
 import type { SystemSearchResult } from "../../api";
+import { esiErrorMessage } from "../../lib/format";
 // Reuses TypePicker's CSS — same dropdown structure.
 import "./TypePicker.css";
 
@@ -54,11 +55,7 @@ export function SystemPicker({
         setFocusIdx(-1);
       } catch (e: unknown) {
         setResults([]);
-        // Tauri serialises CommandError as { type, message } — extract the message if present.
-        const msg = e != null && typeof e === "object" && "message" in e
-          ? String((e as Record<string, unknown>).message)
-          : String(e);
-        setSearchError(msg);
+        setSearchError(esiErrorMessage(e));
         setOpen(true);
       }
     }, 300);

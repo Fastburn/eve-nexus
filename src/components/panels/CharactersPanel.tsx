@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useCharactersStore } from "../../store";
 import { setCorpAssetsMode } from "../../api/characters";
 import type { CharacterId } from "../../api";
+import { esiErrorMessage } from "../../lib/format";
 import "./CharactersPanel.css";
 
 const EVE_IMAGE = "https://images.evetech.net";
@@ -49,10 +50,7 @@ export function CharactersPanel() {
       const info = await add();
       await handleRefreshOne(info.characterId);
     } catch (e) {
-      const msg = (e && typeof e === "object" && "message" in e)
-        ? String((e as Record<string, unknown>).message)
-        : String(e);
-      setAddError(msg);
+      setAddError(esiErrorMessage(e));
     } finally {
       setAdding(false);
     }

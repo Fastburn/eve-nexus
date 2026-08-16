@@ -10,6 +10,7 @@ import {
   fetchPriceHistory,
 } from "../api";
 import type { MarketHistoryEntry, MarketRegion, MarketPriceEntry, TypeId } from "../api";
+import { esiErrorMessage } from "../lib/format";
 
 // Prices keyed by "regionId:typeId" for O(1) lookup.
 type PriceKey = string;
@@ -71,7 +72,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       const regions = await getMarketRegions();
       set({ regions, loading: false });
     } catch (e) {
-      set({ loading: false, error: String(e) });
+      set({ loading: false, error: esiErrorMessage(e) });
     }
   },
 
@@ -85,7 +86,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         )};
       });
     } catch (e) {
-      set({ error: String(e) });
+      set({ error: esiErrorMessage(e) });
       throw e;
     }
   },
@@ -95,7 +96,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       await deleteMarketRegion(id);
       set((s) => ({ regions: s.regions.filter((r) => r.id !== id) }));
     } catch (e) {
-      set({ error: String(e) });
+      set({ error: esiErrorMessage(e) });
       throw e;
     }
   },
@@ -118,7 +119,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         return { prices, byType, fetching: false };
       });
     } catch (e) {
-      set({ fetching: false, error: String(e) });
+      set({ fetching: false, error: esiErrorMessage(e) });
     }
   },
 

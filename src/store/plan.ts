@@ -13,6 +13,7 @@ import {
   setDefaultFreightIskPerM3,
 } from "../api";
 import type { BuildTarget, PlanSummary, ProductionPlan, TypeId } from "../api";
+import { esiErrorMessage } from "../lib/format";
 
 interface PlanState {
   // ── Plan library ──────────────────────────────────────────────────────────
@@ -115,7 +116,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     try {
       set({ plans: await listPlans(), loading: false });
     } catch (e) {
-      set({ loading: false, error: String(e) });
+      set({ loading: false, error: esiErrorMessage(e) });
     }
   },
 
@@ -134,7 +135,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       }
       set({ loading: false });
     } catch (e) {
-      set({ loading: false, error: String(e) });
+      set({ loading: false, error: esiErrorMessage(e) });
     }
   },
 

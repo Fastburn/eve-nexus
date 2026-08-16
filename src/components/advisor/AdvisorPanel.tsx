@@ -6,6 +6,7 @@ import { getIndustrySkills, getCharacterBlueprints, getTypeNames, getSystemCostI
 import { useSettingsStore, useCharactersStore } from "../../store";
 import type { BlueprintOwnership, StructureProfile, SystemCostInfo, SystemSearchResult } from "../../api";
 import { SystemPicker, SystemComparison } from "../common";
+import { esiErrorMessage } from "../../lib/format";
 import "./AdvisorPanel.css";
 
 // ── Skill definitions ─────────────────────────────────────────────────────────
@@ -303,7 +304,7 @@ export function AdvisorPanel() {
         setTypeNames(await getTypeNames(lowIds));
       }
     } catch (e) {
-      setError(String(e));
+      setError(esiErrorMessage(e));
     } finally {
       setLoading(false);
     }
