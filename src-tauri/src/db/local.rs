@@ -228,33 +228,6 @@ impl LocalDb {
     }
 
     fn migrate(&self) -> LocalResult<()> {
-        // Add structure_id column to market_regions if it doesn't exist yet.
-        // SQLite doesn't support IF NOT EXISTS on ALTER TABLE, so we ignore the error.
-        let _ = self.conn()?.execute(
-            "ALTER TABLE market_regions ADD COLUMN structure_id INTEGER",
-            [],
-        );
-        let _ = self.conn()?.execute(
-            "ALTER TABLE market_regions ADD COLUMN is_local INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
-        let _ = self.conn()?.execute(
-            "ALTER TABLE characters ADD COLUMN corp_assets_mode TEXT NOT NULL DEFAULT 'personal'",
-            [],
-        );
-        let _ = self.conn()?.execute(
-            "ALTER TABLE characters ADD COLUMN has_corp_access INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
-        let _ = self.conn()?.execute(
-            "ALTER TABLE characters ADD COLUMN has_wallet_scope INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
-        let _ = self.conn()?.execute(
-            "ALTER TABLE restock_targets ADD COLUMN overbuild_pct REAL",
-            [],
-        );
-
         self.conn()?.execute_batch(
             "
             BEGIN;
@@ -324,7 +297,8 @@ impl LocalDb {
                 character_name   TEXT    NOT NULL,
                 added_at         TEXT    NOT NULL DEFAULT (datetime('now')),
                 corp_assets_mode TEXT    NOT NULL DEFAULT 'personal',
-                has_corp_access  INTEGER NOT NULL DEFAULT 0
+                has_corp_access  INTEGER NOT NULL DEFAULT 0,
+                has_wallet_scope INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS esi_assets (
@@ -384,7 +358,8 @@ impl LocalDb {
                 label        TEXT    NOT NULL,
                 region_id    INTEGER NOT NULL UNIQUE,
                 is_default   INTEGER NOT NULL DEFAULT 0,
-                structure_id INTEGER
+                structure_id INTEGER,
+                is_local     INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS market_prices (
@@ -433,8 +408,9 @@ impl LocalDb {
 
             -- Restock planner: items the user wants to keep on the market. --------
             CREATE TABLE IF NOT EXISTS restock_targets (
-                type_id    INTEGER PRIMARY KEY,
-                target_qty INTEGER NOT NULL DEFAULT 0
+                type_id       INTEGER PRIMARY KEY,
+                target_qty    INTEGER NOT NULL DEFAULT 0,
+                overbuild_pct REAL
             );
 
             -- Player structures where the user has assets — used to suggest market hubs.
@@ -481,10 +457,20 @@ impl LocalDb {
         )?;
 
         // Additive column migrations — silently ignored if column already exists.
+        // Run after the CREATE TABLE batch above so these are true no-ops on a
+        // fresh database (the column is already present via CREATE TABLE) rather
+        // than a schema gap: on a fresh DB these would otherwise run before their
+        // table exists, fail silently, and never retry once CREATE TABLE catches up.
         {
             let conn = self.conn()?;
             let _ = conn.execute("ALTER TABLE watched_systems ADD COLUMN system_name TEXT",    []);
             let _ = conn.execute("ALTER TABLE watched_systems ADD COLUMN region_id   INTEGER", []);
+            let _ = conn.execute("ALTER TABLE market_regions ADD COLUMN structure_id INTEGER", []);
+            let _ = conn.execute("ALTER TABLE market_regions ADD COLUMN is_local INTEGER NOT NULL DEFAULT 0", []);
+            let _ = conn.execute("ALTER TABLE characters ADD COLUMN corp_assets_mode TEXT NOT NULL DEFAULT 'personal'", []);
+            let _ = conn.execute("ALTER TABLE characters ADD COLUMN has_corp_access INTEGER NOT NULL DEFAULT 0", []);
+            let _ = conn.execute("ALTER TABLE characters ADD COLUMN has_wallet_scope INTEGER NOT NULL DEFAULT 0", []);
+            let _ = conn.execute("ALTER TABLE restock_targets ADD COLUMN overbuild_pct REAL", []);
         }
 
         Ok(())
