@@ -426,7 +426,7 @@ pub async fn get_restock_rows(
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.0);
 
-    let sde_guard = sde.0.lock().map_err(|_| CommandError::SdeNotAvailable)?;
+    let sde_guard = sde.0.lock().map_err(|_| CommandError::sde_not_available())?;
 
     let mut rows = Vec::with_capacity(targets.len());
     for (type_id, target_qty, overbuild_pct) in targets {

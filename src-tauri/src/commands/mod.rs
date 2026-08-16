@@ -39,10 +39,18 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum CommandError {
-    SdeNotAvailable,
+    SdeNotAvailable { message: String },
     SdeQuery { message: String },
     LocalDb { message: String },
     InvalidInput { message: String },
+}
+
+impl CommandError {
+    pub fn sde_not_available() -> Self {
+        CommandError::SdeNotAvailable {
+            message: "EVE static data isn't loaded yet — download it from Settings.".into(),
+        }
+    }
 }
 
 impl From<crate::db::sde::SdeError> for CommandError {

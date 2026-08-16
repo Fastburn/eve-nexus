@@ -17,7 +17,7 @@ use super::CommandError;
 
 macro_rules! sde_lock {
     ($state:expr) => {
-        $state.0.lock().map_err(|_| CommandError::SdeNotAvailable)?
+        $state.0.lock().map_err(|_| CommandError::sde_not_available())?
     };
 }
 
@@ -34,7 +34,7 @@ pub fn search_types(
         return Ok(vec![]);
     }
     let guard = sde_lock!(sde);
-    let db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
+    let db = guard.as_ref().ok_or(CommandError::sde_not_available())?;
     let results = db.search_types(&query, 50)?;
     Ok(results.into_iter().map(type_info_to_summary).collect())
 }
@@ -139,7 +139,7 @@ pub fn get_industry_categories(
     sde: State<'_, SdeState>,
 ) -> Result<Vec<IndustryCategory>, CommandError> {
     let guard = sde_lock!(sde);
-    let db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
+    let db = guard.as_ref().ok_or(CommandError::sde_not_available())?;
     let cats = db.get_industry_categories()?;
     Ok(cats
         .into_iter()
@@ -158,7 +158,7 @@ pub fn get_industry_groups(
     sde: State<'_, SdeState>,
 ) -> Result<Vec<IndustryGroup>, CommandError> {
     let guard = sde_lock!(sde);
-    let db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
+    let db = guard.as_ref().ok_or(CommandError::sde_not_available())?;
     let groups = db.get_industry_groups(category_id)?;
     Ok(groups
         .into_iter()
@@ -181,7 +181,7 @@ pub fn get_type_names(
         return Ok(HashMap::new());
     }
     let guard = sde_lock!(sde);
-    let db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
+    let db = guard.as_ref().ok_or(CommandError::sde_not_available())?;
     let infos = db.get_type_infos(&type_ids)?;
     Ok(infos.into_iter().map(|t| (t.type_id, t.type_name)).collect())
 }
@@ -200,7 +200,7 @@ pub fn browse_blueprints(
     local: State<'_, LocalState>,
 ) -> Result<Vec<BlueprintEntry>, CommandError> {
     let guard = sde_lock!(sde);
-    let db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
+    let db = guard.as_ref().ok_or(CommandError::sde_not_available())?;
 
     let characters = local.0.get_characters().unwrap_or_default();
     let char_map: HashMap<CharacterId, String> = characters.into_iter().collect();

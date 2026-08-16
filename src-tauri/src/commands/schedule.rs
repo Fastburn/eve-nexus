@@ -15,7 +15,7 @@ use super::CommandError;
 
 macro_rules! sde_lock {
     ($state:expr) => {
-        $state.0.lock().map_err(|_| CommandError::SdeNotAvailable)?
+        $state.0.lock().map_err(|_| CommandError::sde_not_available())?
     };
 }
 
@@ -28,7 +28,7 @@ pub fn compute_schedule(
     local: State<'_, LocalState>,
 ) -> Result<PlanSchedule, CommandError> {
     let guard = sde_lock!(sde);
-    let sde_db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
+    let sde_db = guard.as_ref().ok_or(CommandError::sde_not_available())?;
 
     if request.targets.is_empty() {
         return Ok(empty_schedule(industry_slots, science_slots));

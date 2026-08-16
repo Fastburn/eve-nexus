@@ -20,7 +20,7 @@ use super::CommandError;
 
 macro_rules! sde_lock {
     ($state:expr) => {
-        $state.0.lock().map_err(|_| CommandError::SdeNotAvailable)?
+        $state.0.lock().map_err(|_| CommandError::sde_not_available())?
     };
 }
 
@@ -50,7 +50,7 @@ pub fn solve_build_plan(
     local: State<'_, LocalState>,
 ) -> Result<Vec<BuildNode>, CommandError> {
     let guard = sde_lock!(sde);
-    let sde_db = guard.as_ref().ok_or(CommandError::SdeNotAvailable)?;
+    let sde_db = guard.as_ref().ok_or(CommandError::sde_not_available())?;
     if request.targets.is_empty() {
         return Ok(vec![]);
     }
