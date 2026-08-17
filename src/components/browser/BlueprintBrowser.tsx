@@ -11,6 +11,7 @@ import type { BlueprintEntry, IndustryCategory, IndustryGroup } from "../../api"
 import { usePlanStore, useSdeStore, useSettingsStore } from "../../store";
 import type { TypeId } from "../../api";
 import { TypeIcon } from "../common";
+import { esiErrorMessage } from "../../lib/format";
 import "./BlueprintBrowser.css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ export function BlueprintBrowser() {
     setFetchError(null);
     getIndustryCategories()
       .then(setCategories)
-      .catch((e) => setFetchError(String(e)))
+      .catch((e) => setFetchError(esiErrorMessage(e)))
       .finally(() => setLoadingCats(false));
   }, [sdeAvailable]);
 
@@ -86,13 +87,16 @@ export function BlueprintBrowser() {
   }, [selectedCat]);
 
   // ── Load blueprints when filters change ──────────────────────────────────
+  const loadRequestRef = useRef(0);
   const loadBlueprints = useCallback(() => {
     if (!sdeAvailable) return;
     // Need at least a category, search, or ownedOnly to show results.
     if (selectedCat === null && !debouncedSearch.trim() && !ownedOnly) {
+      loadRequestRef.current++;
       setBlueprints([]);
       return;
     }
+    const requestId = ++loadRequestRef.current;
     setLoadingBps(true);
     browseBlueprints({
       categoryId: selectedCat,
@@ -100,9 +104,9 @@ export function BlueprintBrowser() {
       query: debouncedSearch.trim() || null,
       ownedOnly,
     })
-      .then(setBlueprints)
-      .catch((e) => setFetchError(String(e)))
-      .finally(() => setLoadingBps(false));
+      .then((rows) => { if (requestId === loadRequestRef.current) setBlueprints(rows); })
+      .catch((e) => { if (requestId === loadRequestRef.current) setFetchError(esiErrorMessage(e)); })
+      .finally(() => { if (requestId === loadRequestRef.current) setLoadingBps(false); });
   }, [sdeAvailable, selectedCat, selectedGroup, debouncedSearch, ownedOnly]);
 
   useEffect(() => { loadBlueprints(); }, [loadBlueprints]);
