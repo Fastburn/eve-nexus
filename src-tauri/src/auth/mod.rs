@@ -582,24 +582,32 @@ fn keyring_key_expiry(character_id: CharacterId) -> String {
 
 // ─── Token storage: keyring with DB fallback ─────────────────────────────────
 //
-// On platforms where the OS keychain is unavailable (e.g. WSL2 without a
-// running secret-service daemon), we fall back to the local SQLite database.
-// The DB file sits in the app data directory which is user-owned (chmod 700
-// on Linux), giving equivalent protection to a desktop deployment.
+// On platforms where the OS keychain is unavailable, we fall back to the
+// local SQLite database. The DB file sits in the app data directory which is
+// user-owned (chmod 700 on Linux), giving equivalent protection to a desktop
+// deployment.
+//
+// The DB is plaintext, so we only want it holding a copy when the keychain
+// genuinely can't be trusted — not on every platform as a matter of course.
+// A keychain write can silently "succeed" while a later read in a fresh
+// session fails, so we verify the write round-trips before treating the
+// keychain as authoritative.
 
 fn token_store(local: &LocalDb, key: &str, value: &str) -> Result<(), AuthError> {
-    // Always write to the local DB — this is the authoritative store and works
-    // on all platforms including WSL2 where the keychain write may succeed but
-    // the read silently fails in a later session.
-    local.set_token(key, value)
-        .map_err(|e| AuthError::Keychain(e.to_string()))?;
-    // Also attempt the OS keychain as a bonus (ignored if unavailable).
-    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, key) {
-        if let Err(e) = entry.set_password(value) {
-            eprintln!("[auth] keychain write failed for {key}: {e} (DB fallback is active)");
-        }
+    let keychain_verified = keyring::Entry::new(KEYRING_SERVICE, key)
+        .and_then(|entry| entry.set_password(value).and_then(|_| entry.get_password()))
+        .map(|roundtrip| roundtrip == value)
+        .unwrap_or(false);
+
+    if keychain_verified {
+        // Keychain has a verified copy — don't also leave plaintext in the DB.
+        let _ = local.delete_token(key);
+        return Ok(());
     }
-    Ok(())
+
+    eprintln!("[auth] keychain unavailable/unverified for {key}; falling back to local DB");
+    local.set_token(key, value)
+        .map_err(|e| AuthError::Keychain(e.to_string()))
 }
 
 fn token_load(local: &LocalDb, key: &str) -> Result<Option<String>, AuthError> {
