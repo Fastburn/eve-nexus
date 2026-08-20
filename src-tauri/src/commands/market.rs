@@ -398,8 +398,11 @@ pub async fn get_restock_rows(
     }
 
     let characters = local.0.get_characters().unwrap_or_default();
-    for (char_id, _) in &characters {
-        let _ = endpoints::fetch_character_market_orders(&esi.0, &local.0, *char_id).await;
+    let fetches = characters
+        .iter()
+        .map(|(char_id, _)| endpoints::fetch_character_market_orders(&esi.0, &local.0, *char_id));
+    for result in futures_util::future::join_all(fetches).await {
+        let _ = result;
     }
 
     let sell_qty = local.0.get_sell_quantities().map_err(CommandError::from)?;
