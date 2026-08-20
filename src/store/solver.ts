@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { solveBuildPlan } from "../api";
 import type { BuildNode, SolvePlanRequest } from "../api";
 import { useMarketStore } from "./market";
+import { useSettingsStore } from "./settings";
 
 // Collect every unique typeId from the solved node tree.
 function collectTypeIds(roots: BuildNode[]): number[] {
@@ -39,10 +40,13 @@ function detectWarnings(roots: BuildNode[]): string[] {
   }
   for (const root of roots) visit(root);
 
+  const profiles = useSettingsStore.getState().structureProfiles;
   for (const [jobType, exampleName] of missingByJobType) {
-    warnings.push(
-      `Job cost is missing for "${exampleName}" (and possibly other items) because no ${jobType} structure profile with a solar system is set. Add one in Settings → Structure Profiles.`
-    );
+    const matchingCount = profiles.filter((p) => p.jobType === jobType).length;
+    const detail = matchingCount === 0
+      ? `because no ${jobType} structure profile with a solar system is set. Add one in Settings → Structure Profiles.`
+      : `because ${matchingCount} ${jobType} structure profiles exist and eve-nexus can't guess which one to use. Assign one to this build target with the profile dropdown in the sidebar.`;
+    warnings.push(`Job cost is missing for "${exampleName}" (and possibly other items) ${detail}`);
   }
 
   return warnings;
