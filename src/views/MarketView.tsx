@@ -277,6 +277,10 @@ export function MarketView() {
   const [freightInput, setFreightInput]     = useState("");
   const planCopyTimer                       = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colCopyTimer                        = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (planCopyTimer.current) clearTimeout(planCopyTimer.current);
+    if (colCopyTimer.current) clearTimeout(colCopyTimer.current);
+  }, []);
 
   const regions          = useMarketStore((s) => s.regions);
   const prices           = useMarketStore((s) => s.prices); // subscribe so plan totals recompute when data arrives
@@ -482,22 +486,41 @@ export function MarketView() {
   // Highest sell price across all regions — where you'd actually sell this item.
   // Not to be confused with RestockView's getLowestSellPrice, which takes the
   // opposite (min) aggregate for its own conservative-margin purposes.
+  //
+  // Memoized per typeId (like RestockView's priceExtremesByType) since this was
+  // previously a full per-row rescan on every render, including keystrokes in
+  // unrelated inputs (e.g. editQty) that re-render this whole component.
+  const priceExtremesByType = useMemo(() => {
+    const map = new Map<number, { bestEntry: MarketPriceEntry | null; marginPct: number | null }>();
+    for (const row of trackedRows) {
+      const all = getPricesForType(row.typeId);
+      const sellable = all.filter((p) => p.bestSell != null);
+      const bestEntry = sellable.length
+        ? sellable.reduce((best, p) => (p.bestSell! > (best.bestSell ?? 0) ? p : best))
+        : null;
+
+      const marginable = all.filter((p) => p.bestSell && p.bestBuy);
+      let marginPct: number | null = null;
+      if (marginable.length) {
+        const bestSellEntry = marginable.reduce((a, b) => (a.bestSell! > b.bestSell! ? a : b));
+        const bestBuyEntry  = marginable.reduce((a, b) => (a.bestBuy!  > b.bestBuy!  ? a : b));
+        const sell = bestSellEntry.bestSell!;
+        const buy  = bestBuyEntry.bestBuy!;
+        marginPct = sell > 0 ? ((sell - buy) / sell) * 100 : null;
+      }
+
+      map.set(row.typeId, { bestEntry, marginPct });
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackedRows, prices]);
+
   function getBestSellEntry(typeId: number) {
-    const entries = getPricesForType(typeId).filter((p) => p.bestSell != null);
-    if (!entries.length) return null;
-    return entries.reduce((best, p) =>
-      p.bestSell! > (best.bestSell ?? 0) ? p : best
-    );
+    return priceExtremesByType.get(typeId)?.bestEntry ?? null;
   }
 
   function getMarginPct(typeId: number): number | null {
-    const entries = getPricesForType(typeId).filter((p) => p.bestSell && p.bestBuy);
-    if (!entries.length) return null;
-    const bestSellEntry = entries.reduce((a, b) => a.bestSell! > b.bestSell! ? a : b);
-    const bestBuyEntry  = entries.reduce((a, b) => a.bestBuy!  > b.bestBuy!  ? a : b);
-    const sell = bestSellEntry.bestSell!;
-    const buy  = bestBuyEntry.bestBuy!;
-    return sell > 0 ? ((sell - buy) / sell) * 100 : null;
+    return priceExtremesByType.get(typeId)?.marginPct ?? null;
   }
 
   const visibleTrackedRows = hideLowMargin

@@ -39,6 +39,10 @@ export function RestockView() {
   const copyTimer                   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [addedToPlan, setAddedToPlan] = useState<number | null>(null);
   const addedTimer                    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+  }, []);
 
   const marketPrices  = useMarketStore((s) => s.prices);
   const fetchPrices   = useMarketStore((s) => s.fetchPrices);

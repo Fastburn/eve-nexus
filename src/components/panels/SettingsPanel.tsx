@@ -249,7 +249,7 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
                 <span />
               </div>
               {profile.rigBonuses.map((rig, i) => (
-                <div key={i} className="sp-rig-row">
+                <div key={rig.categoryId} className="sp-rig-row">
                   <span className="sp-rig-legacy-category">
                     {categories.find((c) => c.categoryId === rig.categoryId)?.categoryName ?? `#${rig.categoryId}`}
                   </span>

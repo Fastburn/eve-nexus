@@ -53,6 +53,7 @@ export function ScheduleView() {
   // Per-row "Copied!" feedback
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
 
   function handleCopyRow(key: string, text: string) {
     copyText(text).then(() => {
@@ -91,11 +92,6 @@ export function ScheduleView() {
     refreshSchedule();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targets, blueprintOverrides, structureProfiles, manualDecisions, blacklist, decrypterChoices]);
-
-  useEffect(() => {
-    if (!schedule) refreshSchedule();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // ── Derived totals (client-side math, no backend round-trip) ───────────────
 

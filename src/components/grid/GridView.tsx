@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Eve Nexus contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSolverStore, useUiStore, useMarketStore, usePlanStore, useSettingsStore } from "../../store";
 import { TypeIcon, Select, blueprintIconVariant } from "../common";
 import { computeNodeCosts } from "../../lib/buildCost";
@@ -265,6 +265,7 @@ export function GridView() {
   const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
   const [copyLabel, setCopyLabel]   = useState<"buy" | "done-buy" | "done-assets" | null>(null);
   const copyLabelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyLabelTimer.current) clearTimeout(copyLabelTimer.current); }, []);
 
   const flat = useMemo(() => flattenNodes(nodes), [nodes]);
 
