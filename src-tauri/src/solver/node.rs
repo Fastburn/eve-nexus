@@ -59,10 +59,18 @@ fn determine_decision(type_id: TypeId, depth: u32, state: &SolverState) -> Decis
     if state.input.blacklist.contains(&type_id) {
         return Decision::Buy;
     }
+    let has_blueprint = state.input.blueprints.contains_key(&type_id);
     if let Some(&d) = state.input.manual_decisions.get(&type_id) {
+        // A stale/mistaken "Build" override for a type with no resolvable
+        // blueprint (raw material, discontinued SDE item, bad DB row) must not
+        // be honored — build_industry_node indexes `blueprints[&type_id]`
+        // unguarded and would panic.
+        if d == Decision::Build && !has_blueprint {
+            return Decision::Buy;
+        }
         return d;
     }
-    if state.input.blueprints.contains_key(&type_id) {
+    if has_blueprint {
         Decision::Build
     } else {
         Decision::Buy

@@ -62,6 +62,7 @@ pub fn attempts_needed(bpcs_needed: u32, probability: f64) -> u32 {
 // ─── Decrypter candidate evaluation ────────────────────────────────────────────
 
 /// One evaluated decrypter option (or "none"), used by the auto-pick loop.
+#[derive(Clone, Copy)]
 struct Candidate {
     effective_runs: u32,
     effective_me: u8,
@@ -187,6 +188,7 @@ pub fn solve_invention_node(
     let none_candidate = eval(None);
 
     let mut best = None;
+    let mut best_candidate = none_candidate;
     let mut best_score = if optimize_for_time {
         none_candidate.total_time_seconds as f64
     } else {
@@ -198,17 +200,22 @@ pub fn solve_invention_node(
         if score < best_score {
             best_score = score;
             best = Some(spec);
+            best_candidate = c;
         }
     }
     let best_decrypter_type_id = best.map(|s| s.type_id);
 
     let is_overridden = decrypter_choice.is_some();
-    // Explicit override wins outright; otherwise apply the auto-picked candidate.
+    // Explicit override wins outright; otherwise reuse the winning candidate
+    // the auto-pick loop above already computed instead of re-evaluating it.
     let applied_spec = match decrypter_choice {
         Some(choice) => find_decrypter(choice),
         None => best,
     };
-    let applied = eval(applied_spec);
+    let applied = match decrypter_choice {
+        Some(_) => eval(applied_spec),
+        None => best_candidate,
+    };
     let isk_saved_vs_no_decrypter = none_candidate.total_cost - applied.total_cost;
 
     let bpcs_needed = applied.bpcs_needed;
