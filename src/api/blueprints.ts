@@ -11,12 +11,12 @@ import type {
 
 /** Return all product categories that have at least one blueprint. */
 export function getIndustryCategories(): Promise<IndustryCategory[]> {
-  return invoke("get_industry_categories");
+  return invoke<IndustryCategory[]>("get_industry_categories");
 }
 
 /** Return all product groups within a category that have blueprints. */
 export function getIndustryGroups(categoryId: number): Promise<IndustryGroup[]> {
-  return invoke("get_industry_groups", { categoryId });
+  return invoke<IndustryGroup[]>("get_industry_groups", { categoryId });
 }
 
 export interface BrowseBlueprintsParams {
@@ -36,7 +36,7 @@ export interface BrowseBlueprintsParams {
 export function browseBlueprints(
   params: BrowseBlueprintsParams = {},
 ): Promise<BlueprintEntry[]> {
-  return invoke("browse_blueprints", {
+  return invoke<BlueprintEntry[]>("browse_blueprints", {
     categoryId: params.categoryId ?? null,
     groupId: params.groupId ?? null,
     query: params.query ?? null,
@@ -49,5 +49,5 @@ export function browseBlueprints(
  * each tagged with character identity and ME/TE stats.
  */
 export function getCharacterBlueprints(): Promise<BlueprintOwnership[]> {
-  return invoke("get_character_blueprints");
+  return invoke<BlueprintOwnership[]>("get_character_blueprints");
 }

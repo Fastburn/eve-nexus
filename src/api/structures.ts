@@ -13,10 +13,10 @@ export async function getStructureProfiles(): Promise<StructureProfile[]> {
 export async function saveStructureProfile(
   profile: StructureProfile,
 ): Promise<void> {
-  return invoke("save_structure_profile", { profile });
+  return invoke<void>("save_structure_profile", { profile });
 }
 
 /** Delete a structure profile by ID. */
 export async function deleteStructureProfile(id: string): Promise<void> {
-  return invoke("delete_structure_profile", { id });
+  return invoke<void>("delete_structure_profile", { id });
 }

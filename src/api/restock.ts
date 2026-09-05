@@ -20,7 +20,7 @@ export interface RestockRow {
 }
 
 export async function getRestockRows(): Promise<RestockRow[]> {
-  return invoke("get_restock_rows");
+  return invoke<RestockRow[]>("get_restock_rows");
 }
 
 export async function saveRestockTarget(
@@ -28,25 +28,25 @@ export async function saveRestockTarget(
   targetQty: number,
   overbuildPct: number | null,
 ): Promise<void> {
-  return invoke("save_restock_target", { typeId, targetQty, overbuildPct });
+  return invoke<void>("save_restock_target", { typeId, targetQty, overbuildPct });
 }
 
 export async function deleteRestockTarget(typeId: number): Promise<void> {
-  return invoke("delete_restock_target", { typeId });
+  return invoke<void>("delete_restock_target", { typeId });
 }
 
 export async function getRestockMargin(): Promise<number> {
-  return invoke("get_restock_margin");
+  return invoke<number>("get_restock_margin");
 }
 
 export async function setRestockMargin(threshold: number): Promise<void> {
-  return invoke("set_restock_margin", { threshold });
+  return invoke<void>("set_restock_margin", { threshold });
 }
 
 export async function getDefaultOverbuildPct(): Promise<number> {
-  return invoke("get_default_overbuild_pct");
+  return invoke<number>("get_default_overbuild_pct");
 }
 
 export async function setDefaultOverbuildPct(pct: number): Promise<void> {
-  return invoke("set_default_overbuild_pct", { pct });
+  return invoke<void>("set_default_overbuild_pct", { pct });
 }

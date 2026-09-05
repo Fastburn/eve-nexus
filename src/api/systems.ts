@@ -5,29 +5,29 @@ import { invoke } from "@tauri-apps/api/core";
 import type { SystemSearchResult, SystemCostInfo, CheapestSystemEntry, WatchedSystem } from "./types";
 
 export function searchSolarSystems(query: string): Promise<SystemSearchResult[]> {
-  return invoke("search_solar_systems", { query });
+  return invoke<SystemSearchResult[]>("search_solar_systems", { query });
 }
 
 export function getSystemCostInfo(systemId: number): Promise<SystemCostInfo | null> {
-  return invoke("get_system_cost_info", { systemId });
+  return invoke<SystemCostInfo | null>("get_system_cost_info", { systemId });
 }
 
 export function getCheapestSystems(
   activity: "manufacturing" | "reaction",
   limit: number,
 ): Promise<CheapestSystemEntry[]> {
-  return invoke("get_cheapest_systems", { activity, limit });
+  return invoke<CheapestSystemEntry[]>("get_cheapest_systems", { activity, limit });
 }
 
 export function getWatchedSystems(): Promise<WatchedSystem[]> {
-  return invoke("get_watched_systems");
+  return invoke<WatchedSystem[]>("get_watched_systems");
 }
 
 /** Add a system to the watch list. Returns the resolved system info (name + region). */
 export function addWatchedSystem(systemId: number): Promise<WatchedSystem> {
-  return invoke("add_watched_system", { systemId });
+  return invoke<WatchedSystem>("add_watched_system", { systemId });
 }
 
 export function removeWatchedSystem(systemId: number): Promise<void> {
-  return invoke("remove_watched_system", { systemId });
+  return invoke<void>("remove_watched_system", { systemId });
 }
