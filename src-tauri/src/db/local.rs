@@ -456,13 +456,16 @@ impl LocalDb {
             ",
         )?;
 
-        // Additive column migrations — silently ignored if column already exists.
-        // Run after the CREATE TABLE batch above so these are true no-ops on a
-        // fresh database (the column is already present via CREATE TABLE) rather
-        // than a schema gap: on a fresh DB these would otherwise run before their
-        // table exists, fail silently, and never retry once CREATE TABLE catches up.
-        {
-            let conn = self.conn()?;
+        // Additive column migrations, gated by `PRAGMA user_version` so they run
+        // exactly once instead of unconditionally re-attempting (and silently
+        // failing) every app launch. On a fresh DB these are true no-ops anyway
+        // (the column is already present via CREATE TABLE above), but on an
+        // existing DB below version 1 they backfill the columns added after
+        // their table's initial release.
+        const SCHEMA_VERSION: i64 = 1;
+        let conn = self.conn()?;
+        let current_version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        if current_version < SCHEMA_VERSION {
             let _ = conn.execute("ALTER TABLE watched_systems ADD COLUMN system_name TEXT",    []);
             let _ = conn.execute("ALTER TABLE watched_systems ADD COLUMN region_id   INTEGER", []);
             let _ = conn.execute("ALTER TABLE market_regions ADD COLUMN structure_id INTEGER", []);
@@ -471,6 +474,7 @@ impl LocalDb {
             let _ = conn.execute("ALTER TABLE characters ADD COLUMN has_corp_access INTEGER NOT NULL DEFAULT 0", []);
             let _ = conn.execute("ALTER TABLE characters ADD COLUMN has_wallet_scope INTEGER NOT NULL DEFAULT 0", []);
             let _ = conn.execute("ALTER TABLE restock_targets ADD COLUMN overbuild_pct REAL", []);
+            conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         }
 
         Ok(())
