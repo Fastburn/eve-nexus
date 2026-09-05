@@ -110,7 +110,10 @@ pub async fn import_eft_fit(
     let result: IdsResponse = esi.0
         .post_public("/universe/ids/", &names)
         .await
-        .map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+        .map_err(|e| {
+            eprintln!("[import] ESI name resolution failed: {e}");
+            CommandError::InvalidInput { message: "Couldn't resolve item names against ESI. Check your connection and try again.".into() }
+        })?;
 
     // Build a lowercase name → type_id map for case-insensitive matching.
     let resolved: HashMap<String, TypeId> = result

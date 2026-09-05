@@ -209,7 +209,10 @@ pub async fn search_solar_systems(
     }
     let results = endpoints::search_solar_systems(&esi.0, &local.0, &query, 20)
         .await
-        .map_err(|e| CommandError::InvalidInput { message: format!("ESI search failed: {e}") })?;
+        .map_err(|e| {
+            eprintln!("[market] solar system search failed: {e}");
+            CommandError::InvalidInput { message: "Solar system search failed. Check your connection and try again.".into() }
+        })?;
     Ok(results
         .into_iter()
         .map(|(id, name)| SystemSearchResult { system_id: id, system_name: name })

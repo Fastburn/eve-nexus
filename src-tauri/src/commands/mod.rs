@@ -55,12 +55,14 @@ impl CommandError {
 
 impl From<crate::db::sde::SdeError> for CommandError {
     fn from(e: crate::db::sde::SdeError) -> Self {
-        CommandError::SdeQuery { message: e.to_string() }
+        eprintln!("[sde] query error: {e}");
+        CommandError::SdeQuery { message: "A static-data query failed. See app logs for details.".into() }
     }
 }
 
 impl From<crate::db::local::LocalDbError> for CommandError {
     fn from(e: crate::db::local::LocalDbError) -> Self {
-        CommandError::LocalDb { message: e.to_string() }
+        eprintln!("[db] local database error: {e}");
+        CommandError::LocalDb { message: "A local database error occurred. See app logs for details.".into() }
     }
 }
