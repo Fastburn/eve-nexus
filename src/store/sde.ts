@@ -16,6 +16,7 @@ import type {
   SdeUpdateResult,
   SdeVersionInfo,
 } from "../api";
+import { esiErrorMessage } from "../lib/format";
 
 interface SdeState {
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -35,6 +36,11 @@ interface SdeState {
   triggerUpdate: () => Promise<void>;
 }
 
+// Unlisten functions from the event listeners registered in init(), so a
+// second init() call (e.g. a future HMR-safe re-init path) tears down the
+// previous listeners instead of stacking duplicates.
+let sdeUnlisten: Array<() => void> = [];
+
 export const useSdeStore = create<SdeState>((set) => ({
   available: false,
   version: null,
@@ -44,28 +50,38 @@ export const useSdeStore = create<SdeState>((set) => ({
   lastResult: null,
 
   init: async () => {
-    const [status, version] = await Promise.all([
-      getSdeStatus(),
-      getSdeVersion(),
-    ]);
-    set({ available: status.available, version });
+    // Tear down any listeners from a previous init() call before re-registering.
+    sdeUnlisten.forEach((unlisten) => unlisten());
+    sdeUnlisten = [];
 
-    // Attach event listeners for the background update that fires on launch.
-    await onSdeDownloadProgress((p) => set({ downloadProgress: p }));
-    await onSdeImportProgress((p) => set({ importProgress: p }));
-    await onSdeResult((r) => {
-      set((s) => ({
-        lastResult: r,
-        updateInProgress: false,
-        downloadProgress: null,
-        importProgress: null,
-        available: r.status === "updated" ? true : s.available,
+    try {
+      const [status, version] = await Promise.all([
+        getSdeStatus(),
+        getSdeVersion(),
+      ]);
+      set({ available: status.available, version });
+
+      // Attach event listeners for the background update that fires on launch.
+      sdeUnlisten.push(await onSdeDownloadProgress((p) => set({ downloadProgress: p })));
+      sdeUnlisten.push(await onSdeImportProgress((p) => set({ importProgress: p })));
+      sdeUnlisten.push(await onSdeResult((r) => {
+        set((s) => ({
+          lastResult: r,
+          updateInProgress: false,
+          downloadProgress: null,
+          importProgress: null,
+          available: r.status === "updated" ? true : s.available,
+        }));
+        // Refresh version metadata after a successful update.
+        if (r.status === "updated") {
+          getSdeVersion().then((v) => set({ version: v }));
+        }
       }));
-      // Refresh version metadata after a successful update.
-      if (r.status === "updated") {
-        getSdeVersion().then((v) => set({ version: v }));
-      }
-    });
+    } catch (e) {
+      // Don't let an SDE status failure abort the rest of the boot sequence
+      // (initApp awaits this alongside settings/character/plan init in one Promise.all).
+      console.error("[eve-nexus] SDE init failed:", esiErrorMessage(e));
+    }
   },
 
   triggerUpdate: async () => {

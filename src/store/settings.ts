@@ -37,6 +37,7 @@ import type {
   StructureProfile,
   TypeId,
 } from "../api";
+import { esiErrorMessage } from "../lib/format";
 
 interface SettingsState {
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -96,38 +97,44 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   decrypterSpecs: [],
 
   init: async () => {
-    const [
-      consent,
-      profiles,
-      overrides,
-      decisions,
-      blacklist,
-      hangar,
-      bpcInventory,
-      decrypterChoices,
-      decrypterSpecs,
-    ] = await Promise.all([
-      getAnalyticsConsent(),
-      getStructureProfiles(),
-      getBlueprintOverrides(),
-      getManualDecisions(),
-      getBlacklist(),
-      getVirtualHangar(),
-      getBpcInventory(),
-      getDecrypterChoices(),
-      listDecrypters(),
-    ]);
-    set({
-      analyticsConsent: consent,
-      structureProfiles: profiles,
-      blueprintOverrides: overrides,
-      manualDecisions: decisions,
-      blacklist,
-      hangar,
-      bpcInventory,
-      decrypterChoices,
-      decrypterSpecs,
-    });
+    try {
+      const [
+        consent,
+        profiles,
+        overrides,
+        decisions,
+        blacklist,
+        hangar,
+        bpcInventory,
+        decrypterChoices,
+        decrypterSpecs,
+      ] = await Promise.all([
+        getAnalyticsConsent(),
+        getStructureProfiles(),
+        getBlueprintOverrides(),
+        getManualDecisions(),
+        getBlacklist(),
+        getVirtualHangar(),
+        getBpcInventory(),
+        getDecrypterChoices(),
+        listDecrypters(),
+      ]);
+      set({
+        analyticsConsent: consent,
+        structureProfiles: profiles,
+        blueprintOverrides: overrides,
+        manualDecisions: decisions,
+        blacklist,
+        hangar,
+        bpcInventory,
+        decrypterChoices,
+        decrypterSpecs,
+      });
+    } catch (e) {
+      // Don't let a settings load failure abort the rest of the boot sequence
+      // (initApp awaits this alongside SDE/character/plan init in one Promise.all).
+      console.error("[eve-nexus] settings init failed:", esiErrorMessage(e));
+    }
   },
 
   setConsent: async (consent) => {

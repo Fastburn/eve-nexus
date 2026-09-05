@@ -109,7 +109,12 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       set((s) => {
         const prices = { ...s.prices };
         const byType = { ...s.byType };
+        // A hub could have been removed while this fetch was in flight — drop
+        // entries for regions no longer configured instead of re-inserting
+        // orphaned price data that nothing will ever clean up.
+        const liveRegionIds = new Set(s.regions.map((r) => r.regionId));
         for (const entry of entries) {
+          if (!liveRegionIds.has(entry.regionId)) continue;
           prices[priceKey(entry.regionId, entry.typeId)] = entry;
           const list = byType[entry.typeId] ? [...byType[entry.typeId]] : [];
           const idx = list.findIndex((e) => e.regionId === entry.regionId);

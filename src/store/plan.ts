@@ -85,6 +85,11 @@ function computeEffective(plan: ProductionPlan | null, globalMultiplier: number,
   };
 }
 
+// Bumped on every openPlan/newPlan/deletePlan call so a slower, superseded
+// call can detect it's stale and avoid clobbering activePlan/targets with
+// data for a plan the user has since navigated away from.
+let planGeneration = 0;
+
 export const usePlanStore = create<PlanState>((set, get) => ({
   plans: [],
   activePlan: null,
@@ -99,16 +104,22 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   error: null,
 
   loadGlobalDefaults: async () => {
-    const [globalMultiplier, globalFreightIskPerM3] = await Promise.all([
-      getDefaultOverproductionMultiplier(),
-      getDefaultFreightIskPerM3(),
-    ]);
-    const { activePlan } = get();
-    set({
-      globalMultiplier,
-      globalFreightIskPerM3,
-      ...computeEffective(activePlan, globalMultiplier, globalFreightIskPerM3),
-    });
+    try {
+      const [globalMultiplier, globalFreightIskPerM3] = await Promise.all([
+        getDefaultOverproductionMultiplier(),
+        getDefaultFreightIskPerM3(),
+      ]);
+      const { activePlan } = get();
+      set({
+        globalMultiplier,
+        globalFreightIskPerM3,
+        ...computeEffective(activePlan, globalMultiplier, globalFreightIskPerM3),
+      });
+    } catch (e) {
+      // Don't let this abort the rest of the boot sequence (initApp awaits it
+      // alongside settings/SDE/character/plan init in one Promise.all).
+      console.error("[eve-nexus] loadGlobalDefaults failed:", esiErrorMessage(e));
+    }
   },
 
   fetchPlans: async () => {
@@ -121,9 +132,11 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   },
 
   openPlan: async (id) => {
+    const generation = ++planGeneration;
     set({ loading: true, error: null });
     try {
       const plan = await getPlan(id);
+      if (generation !== planGeneration) return; // a newer plan switch superseded this one
       if (plan) {
         const { globalMultiplier, globalFreightIskPerM3 } = get();
         set({
@@ -135,11 +148,13 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       }
       set({ loading: false });
     } catch (e) {
+      if (generation !== planGeneration) return;
       set({ loading: false, error: esiErrorMessage(e) });
     }
   },
 
   newPlan: async () => {
+    const generation = ++planGeneration;
     const now = nowIso();
     const plan: ProductionPlan = {
       id: randomId(),
@@ -149,12 +164,14 @@ export const usePlanStore = create<PlanState>((set, get) => ({
       updatedAt: now,
     };
     await savePlan(plan);
+    const plans = await listPlans();
+    if (generation !== planGeneration) return plan.id; // superseded — id is still valid, just don't clobber current selection
     const { globalMultiplier, globalFreightIskPerM3 } = get();
     set({
       activePlan: plan,
       targets: [],
       isDirty: false,
-      plans: await listPlans(),
+      plans,
       ...computeEffective(plan, globalMultiplier, globalFreightIskPerM3),
     });
     return plan.id;
@@ -196,12 +213,20 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   },
 
   deletePlan: async (id) => {
-    await deletePlan(id);
-    const { activePlan } = get();
-    if (activePlan?.id === id) {
-      set({ activePlan: null, targets: [], isDirty: false });
+    const generation = ++planGeneration;
+    try {
+      await deletePlan(id);
+      const plans = await listPlans();
+      if (generation !== planGeneration) return; // superseded by a subsequent plan switch
+      const { activePlan } = get();
+      if (activePlan?.id === id) {
+        set({ activePlan: null, targets: [], isDirty: false });
+      }
+      set({ plans });
+    } catch (e) {
+      if (generation !== planGeneration) return;
+      set({ error: esiErrorMessage(e) });
     }
-    set({ plans: await listPlans() });
   },
 
   addTarget: (target) => {

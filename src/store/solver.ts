@@ -6,6 +6,7 @@ import { solveBuildPlan } from "../api";
 import type { BuildNode, SolvePlanRequest } from "../api";
 import { useMarketStore } from "./market";
 import { useSettingsStore } from "./settings";
+import { esiErrorMessage } from "../lib/format";
 
 // Collect every unique typeId from the solved node tree.
 function collectTypeIds(roots: BuildNode[]): number[] {
@@ -95,10 +96,7 @@ export const useSolverStore = create<SolverState>((set) => ({
       }
     } catch (e) {
       if (generation !== solveGeneration) return;
-      const msg = e instanceof Error ? e.message
-        : typeof e === "string" ? e
-        : (e as { message?: string })?.message ?? JSON.stringify(e);
-      set({ solving: false, error: msg });
+      set({ solving: false, error: esiErrorMessage(e) });
     }
   },
 

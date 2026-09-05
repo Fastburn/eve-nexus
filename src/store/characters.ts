@@ -46,19 +46,29 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
   },
 
   add: async () => {
-    const info = await addCharacter();
-    set((s) => {
-      const rest = s.characters.filter((c) => c.characterId !== info.characterId);
-      return { characters: [...rest, info] };
-    });
-    return info;
+    try {
+      const info = await addCharacter();
+      set((s) => {
+        const rest = s.characters.filter((c) => c.characterId !== info.characterId);
+        return { characters: [...rest, info] };
+      });
+      return info;
+    } catch (e) {
+      set({ error: esiErrorMessage(e) });
+      throw e;
+    }
   },
 
   remove: async (characterId) => {
-    await removeCharacter(characterId);
-    set((s) => ({
-      characters: s.characters.filter((c) => c.characterId !== characterId),
-    }));
+    try {
+      await removeCharacter(characterId);
+      set((s) => ({
+        characters: s.characters.filter((c) => c.characterId !== characterId),
+      }));
+    } catch (e) {
+      set({ error: esiErrorMessage(e) });
+      throw e;
+    }
   },
 
   refreshOne: async (characterId) => {
