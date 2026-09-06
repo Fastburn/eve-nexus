@@ -1,7 +1,7 @@
 {
   "name": "eve-nexus",
   "private": true,
-  "version": "0.0.3-beta.2",
+  "version": "0.0.3-beta.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
