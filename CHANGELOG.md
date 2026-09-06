@@ -2,7 +2,7 @@
 
 ## [0.0.3] - Unreleased
 
-4 new features · 4 improvements · 15 bug fixes
+4 new features · 6 improvements · 31 bug fixes
 
 ### Added
 
@@ -23,6 +23,10 @@ Database write performance. Bulk upserts for system names, structure names, and 
 Copy icons in the market price table now use inline icons instead of a Unicode glyph that rendered as a blank box on some platforms.
 
 Restock's lowest-sell-price lookup is now precomputed into a map instead of scanning all price entries per row, matching the same optimization already applied to the main grid.
+
+The market view's best-sell-price and margin lookups are now precomputed into a map instead of recalculating on every render.
+
+Database migrations now run once per database instead of being reattempted on every app launch.
 
 ### Fixed
 
@@ -57,6 +61,36 @@ ME and TE levels loaded from a saved plan are now clamped to their valid game ra
 Price history entries fetched for the same item across multiple calls no longer get duplicated or left unsorted. Previously a shared history array could be mutated in place and the sort order wasn't guaranteed after merging new entries.
 
 The build plan solver now discards results from a stale, no-longer-current request instead of overwriting newer results if an older request happens to resolve last.
+
+Fresh installs could fail to save a local market hub, link a wallet-scoped character, or set a restock overbuild percentage, with errors like "table X has no column named Y". Three columns were added only through a migration step that ran before their table existed on a brand-new database, so the column was silently missing on first install and never retried. All three now ship as part of the table's initial schema.
+
+Error messages from failed ESI and database calls now show the actual failure reason across the app (Market, Restock, Schedule, Advisor, Blueprint Browser, Characters, Settings, and system/structure search) instead of `[object Object]`. Several call sites were stringifying the raw error object instead of reading its message.
+
+The "SDE not available" error now shows a real message instead of the raw internal error name.
+
+The Blueprint Browser no longer shows stale results when filters are changed quickly. A slower response for an old filter combination could previously arrive after a newer one and overwrite it.
+
+EVE SSO tokens are no longer written to the local database in plaintext when the OS keychain is working. Previously every token save wrote a plaintext copy to the database as a matter of course; it's now only used when a keychain write can't be verified.
+
+Restock's market order refresh now fetches all characters' orders concurrently instead of one at a time, speeding up refresh on multi-character accounts.
+
+The "job cost is missing" warning now explains when it's caused by having multiple structure profiles of the same job type, so eve-nexus can't guess which one to use, instead of implying none is configured. Assign one to the affected build target from the profile dropdown in the sidebar.
+
+Fixed a crash in the build plan solver. A manual "Build" override for an item with no resolvable blueprint, such as a raw material or a discontinued item left over from a stale setting, could crash the solver instead of falling back to buying it.
+
+Fixed a bug where switching production plans in quick succession could load the wrong plan's data. If an older plan's data arrived after a newer selection, it would silently overwrite the plan you'd actually switched to.
+
+The Schedule view no longer fetches the manufacturing timeline twice every time you open the tab.
+
+Error messages from failed database and static-data queries no longer show raw internal detail such as table or column names. They now show a general failure message, with the full detail still recorded in the app logs.
+
+Deleting a plan, or loading default plan settings, now shows an error message if the operation fails instead of failing silently.
+
+Adding or removing a character now shows an error message if it fails, instead of leaving you without feedback.
+
+Removing a market hub while a price refresh is still in flight no longer lets stale prices for that hub reappear once the refresh completes.
+
+A failure loading settings or static data on startup no longer prevents the rest of the app from finishing initialization.
 
 ---
 
