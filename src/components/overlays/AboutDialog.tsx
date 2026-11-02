@@ -168,7 +168,7 @@ function ChangelogTab() {
   return (
     <div className="about-changelog">
       <div className="about-changelog-version">
-        <span className="about-changelog-tag">0.0.3-beta</span>
+        <span className="about-changelog-tag">0.0.3</span>
         <span className="about-changelog-date">Unreleased</span>
       </div>
       <p className="about-changelog-summary">4 new features · 3 improvements · 8 bug fixes</p>

@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.0.3] - Unreleased
+## [0.0.3] - 2026-11-01
 
 5 new features · 7 improvements · 31 bug fixes
 

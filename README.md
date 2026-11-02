@@ -1,6 +1,6 @@
 # Eve-Nexus
 
-![Version](https://img.shields.io/badge/version-0.0.3--beta-blue)
+![Version](https://img.shields.io/badge/version-0.0.3-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-green)
 ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8D8)
