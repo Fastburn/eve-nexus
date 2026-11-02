@@ -2,9 +2,11 @@
 
 ## [0.0.3] - Unreleased
 
-4 new features · 6 improvements · 31 bug fixes
+5 new features · 6 improvements · 31 bug fixes
 
 ### Added
+
+Beta update channel. Settings now has a "Receive beta updates" toggle under Updates. With it on, the app offers beta builds through the normal update banner, and still offers stable releases when they ship. Beta builds have it on by default; stable builds have it off. Previously beta testers had to download each beta by hand because the updater only looked at stable releases.
 
 Grid category filter chips. The build plan grid now shows filter chips in the toolbar for item categories present in the current plan. Click a chip to narrow the grid to just that category. Chips include Minerals, PI, Reactions, Ships, Modules, Drones, Charges, and Components. Multiple chips can be active at once (OR logic). Chips only appear when the current plan contains items of that type.
 

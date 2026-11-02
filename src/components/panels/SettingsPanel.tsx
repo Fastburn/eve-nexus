@@ -6,6 +6,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, useUiStore, useMarketStore } from "../../store";
 import { getTypeNames, getSystemCostInfo, searchMarketStructures, getAssetStructures } from "../../api";
 import { getOptimizeDecryptersForTime, setOptimizeDecryptersForTime } from "../../api/settings";
+import { checkForAppUpdate, getUpdateChannel, setUpdateChannel } from "../../api/updater";
+import type { UpdateChannel } from "../../api/updater";
 import { listRigs } from "../../api/overrides";
 import { getIndustryCategories } from "../../api/blueprints";
 import { TypeIcon, TypePicker, SystemPicker, Select } from "../common";
@@ -710,6 +712,38 @@ export function SettingsPanel() {
     }
   }
 
+  const [updateChannel, setUpdateChannelState] = useState<UpdateChannel>("stable");
+  const [updateStatus, setUpdateStatus]         = useState<string | null>(null);
+
+  useEffect(() => {
+    getUpdateChannel().then(setUpdateChannelState).catch(() => {});
+  }, []);
+
+  async function handleToggleUpdateChannel() {
+    const prev = updateChannel;
+    const next: UpdateChannel = prev === "beta" ? "stable" : "beta";
+    setUpdateChannelState(next); // optimistic
+    setUpdateStatus("Checking for updates…");
+    try {
+      await setUpdateChannel(next);
+    } catch {
+      setUpdateChannelState(prev); // revert on failure
+      setUpdateStatus(null);
+      return;
+    }
+    try {
+      const info = await checkForAppUpdate();
+      if (info) {
+        useUiStore.getState().setUpdateBanner(true);
+        setUpdateStatus(`Version ${info.version} is available.`);
+      } else {
+        setUpdateStatus("You're on the latest version for this channel.");
+      }
+    } catch {
+      setUpdateStatus("Couldn't check for updates right now.");
+    }
+  }
+
   // Resolve type names for hangar, blacklist, and overrides whenever they change.
   useEffect(() => {
     const ids = [
@@ -834,6 +868,29 @@ export function SettingsPanel() {
             title={analyticsConsent === "Granted" ? "Disable telemetry" : "Enable telemetry"}
           >
             {analyticsConsent === "Granted" ? "On" : "Off"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Updates ── */}
+      <div className="sp-section">
+        <div className="sp-section-title">Updates</div>
+        <div className="sp-analytics-row">
+          <div className="sp-analytics-text">
+            <span className="sp-analytics-label">Receive beta updates</span>
+            <span className="sp-analytics-desc">
+              Get new features early by updating to beta builds. Betas may have bugs. You'll
+              still get stable releases as they ship. Switching back to stable takes effect at
+              the next stable release.
+            </span>
+            {updateStatus && <span className="sp-analytics-desc">{updateStatus}</span>}
+          </div>
+          <button
+            className={`sp-toggle${updateChannel === "beta" ? " active" : ""}`}
+            onClick={handleToggleUpdateChannel}
+            title={updateChannel === "beta" ? "Switch to stable updates only" : "Switch to beta updates"}
+          >
+            {updateChannel === "beta" ? "On" : "Off"}
           </button>
         </div>
       </div>

@@ -165,6 +165,7 @@ pub const SETTING_DEFAULT_MULTIPLIER: &str = "default_overproduction_multiplier"
 pub const SETTING_DEFAULT_FREIGHT_ISK_PER_M3: &str = "default_freight_isk_per_m3";
 pub const SETTING_DEFAULT_OVERBUILD_PCT: &str = "default_overbuild_pct";
 pub const SETTING_OPTIMIZE_DECRYPTERS_FOR_TIME: &str = "optimize_decrypters_for_time";
+pub const SETTING_UPDATE_CHANNEL: &str = "update_channel";
 
 // ─── LocalDb ─────────────────────────────────────────────────────────────────
 

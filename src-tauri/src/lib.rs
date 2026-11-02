@@ -142,6 +142,8 @@ pub fn run() {
             // App updater
             commands::check_for_app_update,
             commands::install_app_update,
+            commands::get_update_channel,
+            commands::set_update_channel,
             // SDE type name lookup
             commands::get_type_names,
             // Blueprint browser

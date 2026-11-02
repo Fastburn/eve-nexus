@@ -1,0 +1,49 @@
+name: Update Channel
+
+# Keeps the beta update channel current. The app's Beta channel reads
+# releases/download/updater-beta/latest.json. GitHub's /releases/latest skips
+# prereleases, so betas need this fixed URL instead.
+#
+# Runs on every published release, beta or stable, so beta users are also
+# offered stable builds. Drafts don't trigger it; the channel only moves
+# when a release is actually published.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to point the beta channel at (e.g. v0.0.3-beta.3)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  beta-channel:
+    if: github.event_name == 'workflow_dispatch' || github.event.release.tag_name != 'updater-beta'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.release.tag_name }}
+    steps:
+      - name: Download latest.json from the release
+        run: gh release download "$TAG" --pattern latest.json --dir manifest
+
+      - name: Ensure the updater-beta release exists
+        run: |
+          if ! gh release view updater-beta >/dev/null 2>&1; then
+            # Prerelease so it can never become /releases/latest and leak
+            # betas into the stable channel.
+            gh release create updater-beta \
+              --prerelease \
+              --title "Beta update channel" \
+              --notes "Internal: holds latest.json for the in-app beta update channel. Not a download. Get Eve Nexus from the releases below."
+          fi
+
+      - name: Publish manifest to the beta channel
+        run: |
+          gh release upload updater-beta manifest/latest.json --clobber
+          echo "Beta channel now points at $TAG ($(jq -r .version manifest/latest.json))"

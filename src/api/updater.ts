@@ -34,3 +34,15 @@ export function onAppUpdateProgress(
     cb(e.payload),
   );
 }
+export type UpdateChannel = "stable" | "beta";
+
+/**
+ * The update channel in effect. Defaults to "beta" on beta builds and
+ * "stable" otherwise until the user picks one in Settings.
+ */
+export async function getUpdateChannel(): Promise<UpdateChannel> {
+  return invoke<UpdateChannel>("get_update_channel");
+}
+export async function setUpdateChannel(channel: UpdateChannel): Promise<void> {
+  return invoke("set_update_channel", { channel });
+}
