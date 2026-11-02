@@ -2,7 +2,7 @@
 
 ## [0.0.3] - Unreleased
 
-5 new features · 6 improvements · 31 bug fixes
+5 new features · 7 improvements · 31 bug fixes
 
 ### Added
 
@@ -17,6 +17,8 @@ Best Source column. The grid now shows where each buy item is cheapest after fre
 5-day price trend column. The grid shows a directional price trend for each item based on market history. A green arrow means prices are rising, red means falling. Data is pulled from ESI market history (daily averages) and cached locally with a 35-day rolling window. When you have multiple market hubs configured it picks the region with the highest trade volume.
 
 ### Improved
+
+Facility tax now accepts two decimal places. Structure profiles previously rounded tax to one decimal, so a 0.25% alliance tax was saved as 0.3%.
 
 Grid performance. The best-sell-price lookup is now precomputed into a map instead of scanning all prices per row. The build-tree cost calculation in the market analysis card is memoized so it no longer recomputes on every keystroke.
 

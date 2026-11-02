@@ -40,18 +40,23 @@ interface ProfileEditorProps {
   onCancel: () => void;
 }
 
+/** Facility tax fraction → percent string, up to 2 decimals, no trailing zeros (0.0025 → "0.25"). */
+function formatTaxPct(fraction: number): string {
+  return String(parseFloat((fraction * 100).toFixed(2)));
+}
+
 function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
   const [profile, setProfile] = useState<StructureProfile>(initial);
   const [systemName, setSystemName] = useState<string | null>(null);
   const [categories, setCategories] = useState<IndustryCategory[]>([]);
   const [rigSpecs, setRigSpecs] = useState<RigSpecEntry[]>([]);
-  const [taxInput, setTaxInput]           = useState(() => (initial.facilityTax * 100).toFixed(1));
+  const [taxInput, setTaxInput]           = useState(() => formatTaxPct(initial.facilityTax));
   const [modifierInput, setModifierInput] = useState(() => String(initial.spaceModifier));
 
   // Keep string inputs in sync if parent switches to a different profile without unmounting.
   useEffect(() => {
     setProfile(initial);
-    setTaxInput((initial.facilityTax * 100).toFixed(1));
+    setTaxInput(formatTaxPct(initial.facilityTax));
     setModifierInput(String(initial.spaceModifier));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial.id]);
@@ -160,14 +165,15 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
             type="number"
             min={0}
             max={100}
-            step={0.1}
+            step={0.01}
             value={taxInput}
             onChange={(e) => setTaxInput(e.target.value)}
             onBlur={(e) => {
               const v = parseFloat(e.target.value);
               const clamped = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
-              setField("facilityTax", clamped / 100);
-              setTaxInput(clamped.toFixed(1));
+              const pct = Math.round(clamped * 100) / 100; // 2 decimal places, e.g. 0.25%
+              setField("facilityTax", pct / 100);
+              setTaxInput(formatTaxPct(pct / 100));
             }}
           />
         </div>
@@ -989,7 +995,7 @@ export function SettingsPanel() {
                   <div className="sp-profile-info">
                     <span className="sp-profile-name">{p.label}</span>
                     <span className="sp-profile-meta">
-                      {p.jobType} · Tax {(p.facilityTax * 100).toFixed(1)}%
+                      {p.jobType} · Tax {formatTaxPct(p.facilityTax)}%
                       {(() => {
                         const rigCount = p.installedRigs.length > 0 ? p.installedRigs.length : p.rigBonuses.length;
                         return rigCount > 0 && ` · ${rigCount} rig${rigCount > 1 ? "s" : ""}`;
