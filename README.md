@@ -16,7 +16,7 @@ Eve-Nexus takes your characters' blueprints, assets, and active jobs from ESI an
 ![Build Plan Grid](docs/screenshots/grid.png)
 ![Build Graph](docs/screenshots/graph.png)
 ![Schedule View](docs/screenshots/schedule.png)
-![Market Restock](docs/screenshots/restock.png)
+![Market Prices](docs/screenshots/market.png)
 ![Blueprint Browser](docs/screenshots/blueprints.png)
 
 ---
@@ -52,7 +52,22 @@ Pre-built installers are available on the [Releases](https://github.com/fastburn
 | Linux    | `.AppImage` / `.deb` / `.rpm` |
 | macOS    | Coming soon |
 
-No installation of Rust or Node.js required — just download and run.
+No installation of Rust or Node.js required. Just download and run.
+
+### Updates
+
+Eve-Nexus updates itself. When a new version is out, a banner offers to download and install it.
+
+There are two update channels:
+
+| Channel | What you get |
+|---------|--------------|
+| **Stable** (default) | Tested releases only |
+| **Beta** | Early builds with new features, plus every stable release. Betas may have bugs. |
+
+To switch, open **Settings > Updates** and toggle **Receive beta updates**. Beta builds start on the Beta channel. If you turn beta off, you stay on your current build until the next stable release comes out.
+
+Beta builds are also listed on the [Releases](https://github.com/fastburn/eve-nexus/releases) page, marked as Pre-release.
 
 ---
 
