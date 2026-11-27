@@ -569,6 +569,12 @@ pub struct SolverInput {
 
     /// `skill_type_id → level` from ESI character skills.
     pub character_skills: HashMap<TypeId, u8>,
+    /// `true` when every authenticated character is on an Alpha clone, so
+    /// jobs pay the Alpha clone tax. With any Omega available, the solver
+    /// assumes the Omega installs the jobs (matching how skills are
+    /// aggregated by maximum across characters).
+    #[serde(default)]
+    pub alpha_clone: bool,
 }
 
 // ─── Schedule output ──────────────────────────────────────────────────────────

@@ -123,6 +123,9 @@ pub fn eiv(materials: &[(TypeId, u64)], adjusted_prices: &HashMap<TypeId, f64>) 
 /// SCC surcharge added to every industry job, as a fraction of EIV.
 pub const SCC_SURCHARGE: f64 = 0.04;
 
+/// Extra tax on jobs installed by an Alpha clone, as a fraction of EIV.
+pub const ALPHA_CLONE_TAX: f64 = 0.0025;
+
 /// Facility tax assumed when a node's profile no longer exists: the NPC
 /// station rate.
 pub const NPC_FACILITY_TAX: f64 = 0.0025;
@@ -130,10 +133,11 @@ pub const NPC_FACILITY_TAX: f64 = 0.0025;
 /// Compute the EVE industry job installation cost.
 ///
 /// EVE formula:
-/// `EIV × (system_cost_index × (1 − structure_job_cost_bonus) + facility_tax + SCC_SURCHARGE)`
+/// `EIV × (system_cost_index × (1 − structure_job_cost_bonus) + facility_tax + SCC_SURCHARGE [+ ALPHA_CLONE_TAX])`
 ///
 /// Where:
-/// - EIV (Estimated Item Value) is the sum of adjusted prices of all input materials.
+/// - EIV (Estimated Item Value) is the sum of adjusted prices of the blueprint's
+///   base (ME 0, no structure bonus) input materials.
 ///   Adjusted prices are a rolling average published by ESI, not the current market price.
 ///   This is CCP's mechanism to prevent cost index manipulation via cheap materials.
 /// - System cost index is the fraction of total industry activity happening in that system
@@ -144,6 +148,7 @@ pub const NPC_FACILITY_TAX: f64 = 0.0025;
 /// - Facility tax is the structure owner's rate, charged on EIV. NPC stations
 ///   charge 0.25%.
 /// - The SCC surcharge is a flat 4% of EIV on every job.
+/// - The Alpha clone tax (0.25% of EIV) applies when `input.alpha_clone` is set.
 ///
 /// Returns `None` if no cost index is available for the given system.
 #[must_use]
@@ -168,5 +173,7 @@ pub fn job_cost(
     let facility_tax = profile.map_or(NPC_FACILITY_TAX, |p| p.facility_tax);
     let job_cost_bonus = profile.map_or(0.0, |p| p.hull.job_cost_bonus(p.job_type));
 
-    Some(eiv_value * (index_rate * (1.0 - job_cost_bonus) + facility_tax + SCC_SURCHARGE))
+    let alpha_tax = if input.alpha_clone { ALPHA_CLONE_TAX } else { 0.0 };
+
+    Some(eiv_value * (index_rate * (1.0 - job_cost_bonus) + facility_tax + SCC_SURCHARGE + alpha_tax))
 }

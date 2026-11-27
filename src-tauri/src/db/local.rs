@@ -299,7 +299,8 @@ impl LocalDb {
                 added_at         TEXT    NOT NULL DEFAULT (datetime('now')),
                 corp_assets_mode TEXT    NOT NULL DEFAULT 'personal',
                 has_corp_access  INTEGER NOT NULL DEFAULT 0,
-                has_wallet_scope INTEGER NOT NULL DEFAULT 0
+                has_wallet_scope INTEGER NOT NULL DEFAULT 0,
+                is_alpha         INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS esi_assets (
@@ -463,7 +464,7 @@ impl LocalDb {
         // (the column is already present via CREATE TABLE above), but on an
         // existing DB below version 1 they backfill the columns added after
         // their table's initial release.
-        const SCHEMA_VERSION: i64 = 1;
+        const SCHEMA_VERSION: i64 = 2;
         let conn = self.conn()?;
         let current_version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         if current_version < SCHEMA_VERSION {
@@ -475,6 +476,11 @@ impl LocalDb {
             let _ = conn.execute("ALTER TABLE characters ADD COLUMN has_corp_access INTEGER NOT NULL DEFAULT 0", []);
             let _ = conn.execute("ALTER TABLE characters ADD COLUMN has_wallet_scope INTEGER NOT NULL DEFAULT 0", []);
             let _ = conn.execute("ALTER TABLE restock_targets ADD COLUMN overbuild_pct REAL", []);
+        }
+        if current_version < 2 {
+            let _ = conn.execute("ALTER TABLE characters ADD COLUMN is_alpha INTEGER NOT NULL DEFAULT 0", []);
+        }
+        if current_version < SCHEMA_VERSION {
             conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         }
 
@@ -1008,6 +1014,25 @@ impl LocalDb {
             rusqlite::params![mode, character_id],
         )?;
         Ok(())
+    }
+
+    /// Record whether the character is on an Alpha clone (inferred from skills
+    /// during sync; see `esi::endpoints::fetch_character_skills`).
+    pub fn set_alpha_clone(&self, character_id: crate::types::CharacterId, is_alpha: bool) -> LocalResult<()> {
+        self.conn()?.execute(
+            "UPDATE characters SET is_alpha = ?1 WHERE character_id = ?2",
+            rusqlite::params![is_alpha as i32, character_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_alpha_clone(&self, character_id: crate::types::CharacterId) -> LocalResult<bool> {
+        let is_alpha: Option<i32> = self.conn()?.query_row(
+            "SELECT is_alpha FROM characters WHERE character_id = ?1",
+            [character_id],
+            |r| r.get(0),
+        ).optional()?;
+        Ok(is_alpha.unwrap_or(0) != 0)
     }
 
     pub fn set_corp_access(&self, character_id: crate::types::CharacterId, has_access: bool) -> LocalResult<()> {

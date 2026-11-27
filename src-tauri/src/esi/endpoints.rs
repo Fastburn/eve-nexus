@@ -92,6 +92,10 @@ struct EsiSkillsResponse {
 struct EsiSkill {
     skill_id: TypeId,
     trained_skill_level: u8,
+    /// Level the character can actually use. Lower than `trained_skill_level`
+    /// on an Alpha clone for skills trained past the Alpha cap.
+    #[serde(default)]
+    active_skill_level: Option<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -274,6 +278,12 @@ pub async fn fetch_character_assets(
 // ─── Character skills ─────────────────────────────────────────────────────────
 
 /// Fetch character skills from ESI or cache.
+///
+/// Returns *active* levels, which is what the game applies to jobs: a lapsed
+/// Omega on an Alpha clone keeps their trained levels but can't use them.
+/// ESI has no clone-state flag, so the character is marked Alpha when any
+/// skill's active level is below its trained level. An Alpha who never
+/// trained past the cap looks like an Omega and stays unflagged.
 pub async fn fetch_character_skills(
     client: &EsiClient,
     local: &LocalDb,
@@ -287,13 +297,19 @@ pub async fn fetch_character_skills(
     let path = format!("/characters/{character_id}/skills/");
     let (resp, expiry) = client.get_auth::<EsiSkillsResponse>(&path, character_id).await?;
 
+    let mut is_alpha = false;
     let skills: HashMap<TypeId, u8> = resp
         .skills
         .into_iter()
-        .map(|s| (s.skill_id, s.trained_skill_level))
+        .map(|s| {
+            let active = s.active_skill_level.unwrap_or(s.trained_skill_level);
+            is_alpha |= active < s.trained_skill_level;
+            (s.skill_id, active)
+        })
         .collect();
 
     local.replace_skills(character_id, &skills).map_err(esi_local_err)?;
+    local.set_alpha_clone(character_id, is_alpha).map_err(esi_local_err)?;
     update_expiry(local, &key, expiry, 3600);
 
     Ok(skills)

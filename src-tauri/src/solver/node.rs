@@ -279,11 +279,12 @@ fn build_industry_node(
         .and_then(|id| state.input.structure_profiles.get(id))
         .and_then(|p| p.solar_system_id);
 
-    // EIV uses total material quantities after ME.
-    let mat_totals: Vec<(TypeId, u64)> = all_inputs
+    // EIV is based on the blueprint's base materials (ME 0, no structure
+    // bonus), not the reduced quantities actually consumed.
+    let mat_totals: Vec<(TypeId, u64)> = bp
+        .materials
         .iter()
-        .filter(|n| !matches!(n.kind, NodeKind::Invention(_)))
-        .map(|n| (n.type_id, n.quantity_needed))
+        .map(|&(mat_id, qty_per_run)| (mat_id, qty_per_run.saturating_mul(runs as u64)))
         .collect();
     let eiv_value = cost::eiv(&mat_totals, &state.input.adjusted_prices);
     let job_cost = cost::job_cost(eiv_value, bp.activity, system_id, resolved_profile_id, state.input);

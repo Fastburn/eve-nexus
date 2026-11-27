@@ -162,6 +162,7 @@ mod tests {
             me_levels: HashMap::new(),
             te_levels: HashMap::new(),
             character_skills: HashMap::new(),
+            alpha_clone: false,
         }
     }
 
@@ -525,6 +526,35 @@ mod tests {
         // ME 10 on 5 × 10 runs = floor(50 × 0.9) = 45; but minimum is runs (10), so 45
         assert_eq!(mat.quantity_needed, 45);
         assert_eq!(mat.quantity_to_buy, 45);
+    }
+
+    #[test]
+    fn solve_job_cost_uses_base_materials_and_alpha_tax() {
+        // 10 runs × 5 units at ME 10 consumes 45, but EIV uses the ME 0 base of 50.
+        let mut input = empty_input(vec![target(200, 10)]);
+        input.type_summaries.insert(200, simple_summary(200, "Widget"));
+        input.type_summaries.insert(201, simple_summary(201, "Iron"));
+        input.blueprints.insert(200, simple_blueprint(200, vec![(201, 5)]));
+        input.adjusted_prices.insert(201, 100.0);
+        input.cost_indices.insert(
+            30000142,
+            CostIndex { solar_system_id: 30000142, manufacturing: 0.05, reaction: 0.0, invention: 0.0 },
+        );
+        let mut p = profile(crate::types::JobType::Manufacturing);
+        p.id = "p".to_string();
+        p.solar_system_id = Some(30000142);
+        p.facility_tax = 0.0;
+        input.structure_profiles.insert("p".to_string(), p);
+
+        // EIV 5000 × (0.05 + 0 + 0.04 SCC) = 450
+        let root = &solve(&input)[0];
+        assert_eq!(root.inputs[0].quantity_needed, 45);
+        assert!((root.job_cost.unwrap() - 450.0).abs() < 0.01);
+
+        // Alpha clone adds 0.25% of EIV: 450 + 12.5
+        input.alpha_clone = true;
+        let root = &solve(&input)[0];
+        assert!((root.job_cost.unwrap() - 462.5).abs() < 0.01);
     }
 
     // ── solve: assets reduce to-buy ───────────────────────────────────────────

@@ -169,6 +169,9 @@ pub(super) fn assemble_solver_input(
         }
     }
 
+    let alpha_clone = !characters.is_empty()
+        && characters.iter().all(|(char_id, _)| local.get_alpha_clone(*char_id).unwrap_or(false));
+
     let adjusted_prices = local.get_adjusted_prices().unwrap_or_default();
     let cost_indices = local.get_cost_indices().unwrap_or_default();
 
@@ -218,6 +221,7 @@ pub(super) fn assemble_solver_input(
         me_levels,
         te_levels,
         character_skills,
+        alpha_clone,
     })
 }
 
