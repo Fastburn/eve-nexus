@@ -168,8 +168,42 @@ function ChangelogTab() {
   return (
     <div className="about-changelog">
       <div className="about-changelog-version">
-        <span className="about-changelog-tag">0.0.3</span>
+        <span className="about-changelog-tag">0.0.4-beta</span>
         <span className="about-changelog-date">Unreleased</span>
+      </div>
+      <p className="about-changelog-summary">3 new features · 1 improvement · 12 bug fixes</p>
+
+      <div className="about-changelog-section">What's New</div>
+      <ul className="about-changelog-list">
+        <li>Structure profiles have Security and Structure fields in place of the space modifier. Hull role bonuses (job cost, materials, job time) apply automatically. Set both fields on your existing profiles.</li>
+        <li>L-Set and XL-Set manufacturing rigs for Azbels and Sotiyos, and M-Set reactor rigs for Athanors.</li>
+        <li>Reactions appear in the Schedule with their own slots, based on your reaction skills.</li>
+      </ul>
+
+      <div className="about-changelog-section">Improved</div>
+      <ul className="about-changelog-list">
+        <li>Character sync makes fewer ESI calls.</li>
+      </ul>
+
+      <div className="about-changelog-section">Fixed</div>
+      <ul className="about-changelog-list">
+        <li>Rig bonuses in low-sec and null-sec structures were scaled by the space modifier instead of the security band.</li>
+        <li>Job cost includes the structure's job cost bonus and the 4% SCC surcharge. Profile-less items use the 0.25% NPC tax.</li>
+        <li>Job cost uses the blueprint's base materials, so researched blueprints no longer show job costs that are too low.</li>
+        <li>Skills use their active level, and Alpha clones pay the 0.25% Alpha clone tax.</li>
+        <li>Material quantities round up after ME, like the game.</li>
+        <li>Reactions no longer get ME 10, which undercounted their inputs.</li>
+        <li>Invention jobs include their job cost.</li>
+        <li>Invention time applies Advanced Industry and the structure's time bonus.</li>
+        <li>Corporation assets no longer pile up on every sync or get counted twice for two directors of one corp.</li>
+        <li>"Both" corp asset mode no longer wipes personal blueprints.</li>
+        <li>Corp-only characters sync skills, jobs, orders and wallet again.</li>
+        <li>Launching the app and Refresh respect ESI cache times instead of fetching everything again.</li>
+      </ul>
+
+      <div className="about-changelog-version" style={{ marginTop: "var(--sp-4)" }}>
+        <span className="about-changelog-tag">0.0.3</span>
+        <span className="about-changelog-date">2026-11-01</span>
       </div>
       <p className="about-changelog-summary">4 new features · 3 improvements · 8 bug fixes</p>
 

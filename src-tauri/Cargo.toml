@@ -1,6 +1,6 @@
 [package]
 name = "eve-nexus"
-version = "0.0.3"
+version = "0.0.4-beta.1"
 description = "Eve Nexus — EVE Online industry supply chain optimizer"
 authors = []
 edition = "2021"

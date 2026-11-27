@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.0.4] - Unreleased
+
+3 new features · 1 improvement · 12 bug fixes
+
+### Added
+
+Structure hull and security settings. Structure profiles now have a Security field (High-sec, Low-sec, Null-sec / W-space) and a Structure field (NPC station, Raitaru, Azbel, Sotiyo, Athanor, Tatara) in place of the old space modifier. The hull's role bonuses are applied automatically: Raitaru, Azbel and Sotiyo give 3 / 4 / 5% lower job cost, 1% fewer materials and 15 / 20 / 30% faster jobs, and the Tatara gives 25% faster reactions. Existing profiles keep working but start with no hull selected, so set the Security and Structure fields on each profile to get the right bonuses.
+
+Large and extra-large structure rigs. The rig picker now includes the L-Set and XL-Set manufacturing rigs for Azbels and Sotiyos, and the M-Set reactor rigs for Athanors. Previously only M-Set engineering rigs were available, so a Sotiyo couldn't be set up with its real rigs. Reactor rigs only bonus their own formula family.
+
+Reactions in the Schedule. Reaction jobs now appear in their own section of the Schedule with their own slot count, which defaults from your Mass Reactions and Advanced Mass Reactions skills. Reaction time uses your Reactions skill and the structure's bonuses. The critical path now covers manufacturing, reactions and invention.
+
+### Improved
+
+Character sync makes fewer ESI calls. Corporation assets and each character's corporation lookup were each requested twice per sync, and are now requested once.
+
+### Fixed
+
+Rig bonuses in low-sec and null-sec structures were scaled wrong. The space modifier field was described as a job cost discount (for example 0.75 for a Sotiyo), but the app actually used it to scale rig bonuses. A null-sec Sotiyo entered that way got rigs at 0.75x instead of 2.1x. Rig bonuses now come from the Security field, and the job cost discount comes from the Structure field.
+
+Job cost now follows the current formula: the system cost index reduced by the structure's job cost bonus, plus facility tax and the 4% SCC surcharge. Items without a structure profile fall back to the NPC station tax of 0.25%.
+
+Job cost was calculated from your blueprint's reduced material quantities. The game uses the blueprint's base materials (ME 0, no structure bonus) to value the job, so researched blueprints showed job costs that were too low.
+
+Skills now use their active level instead of their trained level. A lapsed Omega account on an Alpha clone can't use skills trained past the Alpha cap, and the app was calculating with them anyway. When every character is on an Alpha clone, job costs also include the 0.25% Alpha clone tax.
+
+Material quantities are now rounded up after applying ME, the same way the game does it. Previously they were rounded down, which could leave you one unit short (for example 3 runs needing 1 unit each at ME 10 need 3 units, not 2).
+
+Reactions no longer get the default ME 10. Reaction formulas can't be researched, so reaction inputs were being undercounted by 10%.
+
+Invention jobs now include their job cost. It's charged on 2% of the product's value using your Invention structure profile, and it's included when the app picks the cheapest decrypter. Previously invention had no job cost at all.
+
+Invention time now applies the Advanced Industry skill (3% faster per level) and the structure's time bonus. Previously it always used the base time.
+
+Corporation assets no longer pile up or get counted twice. Corp stock was added on top of a character's personal assets on every sync, so it grew with each refresh, and two directors in the same corp counted it twice. Corp assets and blueprints are now stored once per corporation. Your asset and blueprint data is cleared once after updating and fetched again on the next sync.
+
+Characters set to "Both" for corp assets no longer lose their personal blueprints. Syncing corp blueprints was replacing the character's own blueprint list, so personal ME/TE research levels went missing.
+
+Characters set to corp-only assets now sync their skills, industry jobs, market orders and wallet. Previously corp-only mode skipped all of them.
+
+Launching the app and pressing Refresh now respect ESI cache times. Both used to clear every cache timer and fetch all data again, even data ESI had marked as still fresh.
+
 ## [0.0.3] - 2026-11-01
 
 5 new features · 7 improvements · 31 bug fixes
