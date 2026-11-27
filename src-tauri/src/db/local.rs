@@ -300,7 +300,26 @@ impl LocalDb {
                 corp_assets_mode TEXT    NOT NULL DEFAULT 'personal',
                 has_corp_access  INTEGER NOT NULL DEFAULT 0,
                 has_wallet_scope INTEGER NOT NULL DEFAULT 0,
-                is_alpha         INTEGER NOT NULL DEFAULT 0
+                is_alpha         INTEGER NOT NULL DEFAULT 0,
+                corp_id          INTEGER
+            );
+
+            -- Corporation inventory, stored once per corp so several directors
+            -- in the same corp don't double-count it.
+            CREATE TABLE IF NOT EXISTS corp_assets (
+                corp_id  INTEGER NOT NULL,
+                type_id  INTEGER NOT NULL,
+                quantity INTEGER NOT NULL,
+                PRIMARY KEY (corp_id, type_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS corp_blueprints (
+                corp_id           INTEGER NOT NULL,
+                blueprint_type_id INTEGER NOT NULL,
+                runs              INTEGER NOT NULL DEFAULT -1,
+                me_level          INTEGER NOT NULL DEFAULT 0,
+                te_level          INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (corp_id, blueprint_type_id)
             );
 
             CREATE TABLE IF NOT EXISTS esi_assets (
@@ -464,7 +483,7 @@ impl LocalDb {
         // (the column is already present via CREATE TABLE above), but on an
         // existing DB below version 1 they backfill the columns added after
         // their table's initial release.
-        const SCHEMA_VERSION: i64 = 2;
+        const SCHEMA_VERSION: i64 = 3;
         let conn = self.conn()?;
         let current_version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         if current_version < SCHEMA_VERSION {
@@ -479,6 +498,19 @@ impl LocalDb {
         }
         if current_version < 2 {
             let _ = conn.execute("ALTER TABLE characters ADD COLUMN is_alpha INTEGER NOT NULL DEFAULT 0", []);
+        }
+        if current_version < 3 {
+            let _ = conn.execute("ALTER TABLE characters ADD COLUMN corp_id INTEGER", []);
+            // Corp assets used to be added onto each character's personal rows
+            // (growing on every sync) and corp blueprints replaced personal
+            // ones. Drop that data and its cache timers so the next sync
+            // rebuilds personal and corp inventory separately.
+            conn.execute_batch(
+                "DELETE FROM esi_assets;
+                 DELETE FROM esi_blueprints;
+                 DELETE FROM esi_cache_timestamps
+                  WHERE key LIKE 'char:%:assets' OR key LIKE 'char:%:blueprints' OR key LIKE 'corp:%';",
+            )?;
         }
         if current_version < SCHEMA_VERSION {
             conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
@@ -1123,25 +1155,99 @@ impl LocalDb {
         Ok(())
     }
 
-    /// Merge additional asset quantities into existing assets (used for corp assets).
-    pub fn merge_assets(
+    /// Replace a corporation's cached asset quantities.
+    pub fn replace_corp_assets(
         &self,
-        character_id: crate::types::CharacterId,
+        corp_id: i64,
         assets: &HashMap<crate::types::TypeId, u64>,
     ) -> LocalResult<()> {
         let conn = self.conn()?;
         let tx = conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM corp_assets WHERE corp_id = ?1", [corp_id])?;
         {
             let mut stmt = tx.prepare(
-                "INSERT INTO esi_assets (character_id, type_id, quantity) VALUES (?1, ?2, ?3)
-                 ON CONFLICT(character_id, type_id) DO UPDATE SET quantity = quantity + excluded.quantity",
+                "INSERT INTO corp_assets (corp_id, type_id, quantity) VALUES (?1, ?2, ?3)",
             )?;
             for (&type_id, &qty) in assets {
-                stmt.execute(rusqlite::params![character_id, type_id, qty])?;
+                stmt.execute(rusqlite::params![corp_id, type_id, qty])?;
             }
         }
         tx.commit()?;
         Ok(())
+    }
+
+    /// Characters whose personal inventory counts, and the corporations whose
+    /// inventory counts (each once, with one representative character), based
+    /// on every character's `corp_assets_mode`.
+    fn inventory_sources(
+        &self,
+    ) -> LocalResult<(Vec<crate::types::CharacterId>, Vec<(i64, crate::types::CharacterId)>)> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare_cached(
+            "SELECT character_id, corp_assets_mode, corp_id FROM characters ORDER BY character_id",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, crate::types::CharacterId>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<i64>>(2)?,
+            ))
+        })?;
+        let mut personal = Vec::new();
+        let mut corps: Vec<(i64, crate::types::CharacterId)> = Vec::new();
+        for row in rows {
+            let (char_id, mode, corp_id) = row?;
+            if mode != "corp" {
+                personal.push(char_id);
+            }
+            if mode == "corp" || mode == "both" {
+                if let Some(corp_id) = corp_id {
+                    if !corps.iter().any(|(c, _)| *c == corp_id) {
+                        corps.push((corp_id, char_id));
+                    }
+                }
+            }
+        }
+        Ok((personal, corps))
+    }
+
+    /// Total material inventory across characters and corporations, following
+    /// each character's corp assets mode. Corp stock is counted once per corp.
+    pub fn get_inventory_assets(&self) -> LocalResult<HashMap<crate::types::TypeId, u64>> {
+        let (personal, corps) = self.inventory_sources()?;
+        let mut total: HashMap<crate::types::TypeId, u64> = HashMap::new();
+        for char_id in personal {
+            for (type_id, qty) in self.get_assets(char_id)? {
+                *total.entry(type_id).or_insert(0) += qty;
+            }
+        }
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare_cached("SELECT type_id, quantity FROM corp_assets WHERE corp_id = ?1")?;
+        for (corp_id, _) in corps {
+            let rows = stmt.query_map([corp_id], |r| Ok((r.get::<_, crate::types::TypeId>(0)?, r.get::<_, u64>(1)?)))?;
+            for row in rows {
+                let (type_id, qty) = row?;
+                *total.entry(type_id).or_insert(0) += qty;
+            }
+        }
+        Ok(total)
+    }
+
+    pub fn set_corp_id(&self, character_id: crate::types::CharacterId, corp_id: i64) -> LocalResult<()> {
+        self.conn()?.execute(
+            "UPDATE characters SET corp_id = ?1 WHERE character_id = ?2",
+            rusqlite::params![corp_id, character_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_corp_id(&self, character_id: crate::types::CharacterId) -> LocalResult<Option<i64>> {
+        let corp_id: Option<Option<i64>> = self.conn()?.query_row(
+            "SELECT corp_id FROM characters WHERE character_id = ?1",
+            [character_id],
+            |r| r.get(0),
+        ).optional()?;
+        Ok(corp_id.flatten())
     }
 
     // ── Jobs ─────────────────────────────────────────────────────────────────
@@ -1355,27 +1461,57 @@ impl LocalDb {
         rows.collect::<Result<_, _>>().map_err(Into::into)
     }
 
-    /// Return all blueprints across all characters as `(character_id, blueprint)` pairs.
+    /// Owned blueprints as `(character_id, blueprint)` pairs, following each
+    /// character's corp assets mode. Corp blueprints are listed once per corp,
+    /// under one director of that corp.
     pub fn get_all_blueprints(
         &self,
     ) -> LocalResult<Vec<(crate::types::CharacterId, CharacterBlueprint)>> {
+        let (personal, corps) = self.inventory_sources()?;
+        let mut out = Vec::new();
+        for char_id in personal {
+            out.extend(self.get_blueprints(char_id)?.into_iter().map(|bp| (char_id, bp)));
+        }
         let conn = self.conn()?;
         let mut stmt = conn.prepare_cached(
-            "SELECT character_id, blueprint_type_id, runs, me_level, te_level
-             FROM esi_blueprints",
+            "SELECT blueprint_type_id, runs, me_level, te_level FROM corp_blueprints WHERE corp_id = ?1",
         )?;
-        let rows = stmt.query_map([], |r| {
-            Ok((
-                r.get::<_, crate::types::CharacterId>(0)?,
-                CharacterBlueprint {
-                    blueprint_type_id: r.get(1)?,
-                    runs: r.get(2)?,
-                    me_level: r.get(3)?,
-                    te_level: r.get(4)?,
-                },
-            ))
-        })?;
-        rows.collect::<Result<_, _>>().map_err(Into::into)
+        for (corp_id, char_id) in corps {
+            let rows = stmt.query_map([corp_id], |r| {
+                Ok(CharacterBlueprint {
+                    blueprint_type_id: r.get(0)?,
+                    runs: r.get(1)?,
+                    me_level: r.get(2)?,
+                    te_level: r.get(3)?,
+                })
+            })?;
+            for row in rows {
+                out.push((char_id, row?));
+            }
+        }
+        Ok(out)
+    }
+
+    /// Replace a corporation's cached blueprints.
+    pub fn replace_corp_blueprints(&self, corp_id: i64, blueprints: &[CharacterBlueprint]) -> LocalResult<()> {
+        let conn = self.conn()?;
+        let tx = conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM corp_blueprints WHERE corp_id = ?1", [corp_id])?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO corp_blueprints (corp_id, blueprint_type_id, runs, me_level, te_level)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(corp_id, blueprint_type_id) DO UPDATE
+                 SET runs     = CASE WHEN excluded.runs = -1 THEN -1 ELSE MAX(runs, excluded.runs) END,
+                     me_level = MAX(me_level, excluded.me_level),
+                     te_level = MAX(te_level, excluded.te_level)",
+            )?;
+            for bp in blueprints {
+                stmt.execute(rusqlite::params![corp_id, bp.blueprint_type_id, bp.runs, bp.me_level, bp.te_level])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
     }
 
     /// Replace all cached blueprints for a character.

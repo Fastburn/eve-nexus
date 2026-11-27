@@ -193,42 +193,9 @@ pub async fn refresh_all_esi_data(
         .map(|(char_id, _)| {
             let char_id = *char_id;
             let sem = sem.clone();
-            let mode = db
-                .get_character_extra(char_id)
-                .map(|(m, _)| m)
-                .unwrap_or_else(|_| "personal".to_string());
             async move {
                 let _permit = sem.acquire().await.ok();
-                let include_personal = mode != "corp";
-                let include_corp     = mode == "corp" || mode == "both";
-
-                let _ = endpoints::fetch_corporation_asset_structures(client, db, char_id).await;
-
-                if include_personal {
-                    let (assets, skills, jobs, blueprints, _orders, _wallet_tx) = tokio::join!(
-                        endpoints::fetch_character_assets(client, db, char_id),
-                        endpoints::fetch_character_skills(client, db, char_id),
-                        endpoints::fetch_character_jobs(client, db, char_id),
-                        endpoints::fetch_character_blueprints(client, db, char_id),
-                        endpoints::fetch_character_market_orders(client, db, char_id),
-                        endpoints::fetch_character_wallet_transactions(client, db, char_id),
-                    );
-                    assets.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-                    skills.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-                    jobs.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-                    blueprints.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-                } else {
-                    // Corp-only mode: clear stale personal assets so corp merge
-                    // doesn't accumulate on top of data from a previous sync.
-                    let _ = db.replace_assets(char_id, &std::collections::HashMap::new());
-                }
-
-                if include_corp {
-                    let _ = endpoints::fetch_corporation_assets(client, db, char_id).await;
-                    let _ = endpoints::fetch_corporation_blueprints(client, db, char_id).await;
-                }
-
-                Ok::<(), CommandError>(())
+                sync_character(client, db, char_id).await
             }
         })
         .collect();
@@ -256,6 +223,49 @@ pub async fn refresh_all_esi_data(
     Ok(())
 }
 
+/// Sync one character's ESI data. Skills, jobs, orders and wallet always
+/// sync; the corp assets mode only decides whether personal and/or corp
+/// inventory (assets, blueprints) is fetched.
+async fn sync_character(
+    client: &crate::esi::EsiClient,
+    db: &crate::db::local::LocalDb,
+    character_id: CharacterId,
+) -> Result<(), CommandError> {
+    let mode = db
+        .get_character_extra(character_id)
+        .map(|(m, _)| m)
+        .unwrap_or_else(|_| "personal".to_string());
+    let include_personal = mode != "corp";
+    let include_corp = mode == "corp" || mode == "both";
+
+    // Always runs: detects director access and collects structure hub
+    // suggestions, and stores corp stock for corp mode.
+    let _ = endpoints::fetch_corporation_assets(client, db, character_id).await;
+
+    let (skills, jobs, _orders, _wallet_tx) = tokio::join!(
+        endpoints::fetch_character_skills(client, db, character_id),
+        endpoints::fetch_character_jobs(client, db, character_id),
+        endpoints::fetch_character_market_orders(client, db, character_id),
+        endpoints::fetch_character_wallet_transactions(client, db, character_id),
+    );
+    skills.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+    jobs.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+
+    if include_personal {
+        let (assets, blueprints) = tokio::join!(
+            endpoints::fetch_character_assets(client, db, character_id),
+            endpoints::fetch_character_blueprints(client, db, character_id),
+        );
+        assets.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+        blueprints.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
+    }
+
+    if include_corp {
+        let _ = endpoints::fetch_corporation_blueprints(client, db, character_id).await;
+    }
+    Ok(())
+}
+
 /// Force-refresh all ESI data for a single character, bypassing the cache.
 #[tauri::command]
 pub async fn refresh_esi_data(
@@ -278,15 +288,6 @@ pub async fn refresh_esi_data(
         }
     }
 
-    let mode = db
-        .get_character_extra(character_id)
-        .map(|(m, _)| m)
-        .unwrap_or_else(|_| "personal".to_string());
-    let include_personal = mode != "corp";
-    let include_corp     = mode == "corp" || mode == "both";
-
-    let _ = endpoints::fetch_corporation_asset_structures(client, db, character_id).await;
-
     let (prices, indices) = tokio::join!(
         endpoints::fetch_adjusted_prices(client, db),
         endpoints::fetch_cost_indices(client, db),
@@ -294,27 +295,7 @@ pub async fn refresh_esi_data(
     prices.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
     indices.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
 
-    if include_personal {
-        let (assets, skills, jobs, blueprints, _orders, _wallet_tx) = tokio::join!(
-            endpoints::fetch_character_assets(client, db, character_id),
-            endpoints::fetch_character_skills(client, db, character_id),
-            endpoints::fetch_character_jobs(client, db, character_id),
-            endpoints::fetch_character_blueprints(client, db, character_id),
-            endpoints::fetch_character_market_orders(client, db, character_id),
-            endpoints::fetch_character_wallet_transactions(client, db, character_id),
-        );
-        assets.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-        skills.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-        jobs.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-        blueprints.map_err(|e| CommandError::InvalidInput { message: e.to_string() })?;
-    } else {
-        let _ = db.replace_assets(character_id, &std::collections::HashMap::new());
-    }
-
-    if include_corp {
-        let _ = endpoints::fetch_corporation_assets(client, db, character_id).await;
-        let _ = endpoints::fetch_corporation_blueprints(client, db, character_id).await;
-    }
+    sync_character(client, db, character_id).await?;
 
     if let Ok(regions) = db.get_market_regions() {
         for r in regions {

@@ -88,16 +88,15 @@ pub(super) fn assemble_solver_input(
     // Base ME/TE from ESI-fetched owned blueprints (lowest priority).
     let mut me_levels: HashMap<TypeId, u8> = HashMap::new();
     let mut te_levels: HashMap<TypeId, u8> = HashMap::new();
-    for (char_id, _) in &local.get_characters().unwrap_or_default() {
-        for bp in local.get_blueprints(*char_id).unwrap_or_default() {
-            if let Some(&product_id) = bp_item_to_product.get(&bp.blueprint_type_id) {
-                me_levels.entry(product_id)
-                    .and_modify(|v| *v = (*v).max(bp.me_level))
-                    .or_insert(bp.me_level);
-                te_levels.entry(product_id)
-                    .and_modify(|v| *v = (*v).max(bp.te_level))
-                    .or_insert(bp.te_level);
-            }
+    // Personal and corp blueprints, following each character's corp assets mode.
+    for (_, bp) in local.get_all_blueprints().unwrap_or_default() {
+        if let Some(&product_id) = bp_item_to_product.get(&bp.blueprint_type_id) {
+            me_levels.entry(product_id)
+                .and_modify(|v| *v = (*v).max(bp.me_level))
+                .or_insert(bp.me_level);
+            te_levels.entry(product_id)
+                .and_modify(|v| *v = (*v).max(bp.te_level))
+                .or_insert(bp.te_level);
         }
     }
 
@@ -143,12 +142,8 @@ pub(super) fn assemble_solver_input(
     // ── ESI cached data (best-effort — empty maps if never fetched) ─────────
     let characters = local.get_characters().unwrap_or_default();
 
-    let mut assets: HashMap<TypeId, u64> = HashMap::new();
-    for (char_id, _) in &characters {
-        for (type_id, qty) in local.get_assets(*char_id).unwrap_or_default() {
-            *assets.entry(type_id).or_insert(0) += qty;
-        }
-    }
+    // Personal and corp stock, following each character's corp assets mode.
+    let assets: HashMap<TypeId, u64> = local.get_inventory_assets().unwrap_or_default();
 
     let mut active_jobs: Vec<crate::types::EsiJob> = Vec::new();
     for (char_id, _) in &characters {

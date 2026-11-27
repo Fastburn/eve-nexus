@@ -31,7 +31,9 @@ const CACHE_COST_INDICES: &str = "cost_indices";
 
 fn cache_assets(id: CharacterId)        -> String { format!("char:{id}:assets") }
 fn cache_corp_assets(corp_id: i64)      -> String { format!("corp:{corp_id}:assets") }
+fn cache_corp_blueprints(corp_id: i64)  -> String { format!("corp:{corp_id}:blueprints") }
 fn cache_corp_access(id: CharacterId)   -> String { format!("char:{id}:corp_access") }
+fn cache_corp_id(id: CharacterId)       -> String { format!("char:{id}:corp_id") }
 fn cache_skills(id: CharacterId)        -> String { format!("char:{id}:skills") }
 fn cache_jobs(id: CharacterId)          -> String { format!("char:{id}:jobs") }
 fn cache_blueprints(id: CharacterId)    -> String { format!("char:{id}:blueprints") }
@@ -632,20 +634,36 @@ pub async fn fetch_structure_info(
     Ok(info)
 }
 
-/// Fetch corporation assets for the corporation the given character belongs to.
-/// Extracts unique player-structure IDs (> 1 billion) and persists them so they
-/// can be offered as market hub suggestions alongside the character's own assets.
+/// The character's corporation ID, from the public character endpoint, cached
+/// on the character row.
+async fn resolve_corp_id(client: &EsiClient, local: &LocalDb, character_id: CharacterId) -> EsiResult<i64> {
+    let key = cache_corp_id(character_id);
+    if local.get_cache_expiry(&key).map_err(esi_local_err)?.is_some() {
+        if let Some(corp_id) = local.get_corp_id(character_id).map_err(esi_local_err)? {
+            return Ok(corp_id);
+        }
+    }
+    let char_path = format!("/characters/{character_id}/");
+    let (char_info, expiry) = client.get_public::<EsiCharacterPublicInfo>(&char_path).await?;
+    local.set_corp_id(character_id, char_info.corporation_id).map_err(esi_local_err)?;
+    update_expiry(local, &key, expiry, 3600);
+    Ok(char_info.corporation_id)
+}
+
+/// Fetch the assets of the character's corporation (Director role required).
+///
+/// One request serves two purposes: player-structure IDs (> 1 billion) are
+/// saved as market hub suggestions, and item quantities are stored once per
+/// corp for characters using corp assets mode. Also records whether the
+/// character has director access (200 vs 403).
 ///
 /// Uses `esi-assets.read_corporation_assets.v1` scope via the character's token.
-pub async fn fetch_corporation_asset_structures(
+pub async fn fetch_corporation_assets(
     client: &EsiClient,
     local: &LocalDb,
     character_id: CharacterId,
 ) -> EsiResult<()> {
-    // Resolve corporation_id from the public character endpoint.
-    let char_path = format!("/characters/{character_id}/");
-    let (char_info, _) = client.get_public::<EsiCharacterPublicInfo>(&char_path).await?;
-    let corp_id = char_info.corporation_id;
+    let corp_id = resolve_corp_id(client, local, character_id).await?;
 
     // The corp asset *data* cache is shared across characters in the same corp (the
     // data itself is identical regardless of who fetches it), but director-role
@@ -689,31 +707,38 @@ pub async fn fetch_corporation_asset_structures(
     // one of those offices, but we only care about the structure ID — which we already get
     // from the office row itself.
     let mut structure_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    let mut qty_map: HashMap<TypeId, u64> = HashMap::new();
     for item in raw {
         if item.location_type == "other"
             || (item.location_type == "station" && item.location_id > 1_000_000_000)
         {
             structure_ids.insert(item.location_id);
         }
+        if item.location_type != "solar_system" {
+            *qty_map.entry(item.type_id).or_insert(0) += item.quantity as u64;
+        }
     }
 
     let ids: Vec<i64> = structure_ids.into_iter().collect();
     local.merge_asset_structure_locations(character_id, &ids).map_err(esi_local_err)?;
+    local.replace_corp_assets(corp_id, &qty_map).map_err(esi_local_err)?;
     update_expiry(local, &corp_key, expiry, 3600);
 
     Ok(())
 }
 
-/// Fetch corporation blueprints and merge into the character's blueprint inventory.
+/// Fetch corporation blueprints, stored once per corp.
 /// Requires Director role — silently skips on 403.
 pub async fn fetch_corporation_blueprints(
     client: &EsiClient,
     local: &LocalDb,
     character_id: CharacterId,
 ) -> EsiResult<()> {
-    let char_path = format!("/characters/{character_id}/");
-    let (char_info, _) = client.get_public::<EsiCharacterPublicInfo>(&char_path).await?;
-    let corp_id = char_info.corporation_id;
+    let corp_id = resolve_corp_id(client, local, character_id).await?;
+    let key = cache_corp_blueprints(corp_id);
+    if local.get_cache_expiry(&key).map_err(esi_local_err)?.is_some() {
+        return Ok(());
+    }
 
     let path = format!("/corporations/{corp_id}/blueprints/");
     let result = client.get_auth_all_pages::<EsiBlueprintRaw>(&path, character_id).await;
@@ -740,39 +765,8 @@ pub async fn fetch_corporation_blueprints(
     }
 
     let blueprints: Vec<CharacterBlueprint> = map.into_values().collect();
-    // Merge corp blueprints into the character's blueprint store using upsert logic.
-    local.replace_blueprints(character_id, &blueprints).map_err(esi_local_err)?;
-    update_expiry(local, &format!("corp:{corp_id}:blueprints"), expiry, 3600);
-    Ok(())
-}
-
-/// Fetch corporation assets and merge quantities into the character's asset inventory.
-/// Requires Director role — silently skips on 403.
-pub async fn fetch_corporation_assets(
-    client: &EsiClient,
-    local: &LocalDb,
-    character_id: CharacterId,
-) -> EsiResult<()> {
-    let char_path = format!("/characters/{character_id}/");
-    let (char_info, _) = client.get_public::<EsiCharacterPublicInfo>(&char_path).await?;
-    let corp_id = char_info.corporation_id;
-
-    let path = format!("/corporations/{corp_id}/assets/");
-    let result = client.get_auth_all_pages::<EsiAsset>(&path, character_id).await;
-    let (raw, _) = match result {
-        Ok(r) => r,
-        Err(EsiError::HttpError { status: 403, .. }) => return Ok(()),
-        Err(e) => return Err(e),
-    };
-
-    // Aggregate quantities by type_id and merge into asset store.
-    let mut qty_map: std::collections::HashMap<TypeId, u64> = std::collections::HashMap::new();
-    for item in &raw {
-        if item.location_type != "solar_system" {
-            *qty_map.entry(item.type_id).or_insert(0) += item.quantity as u64;
-        }
-    }
-    local.merge_assets(character_id, &qty_map).map_err(esi_local_err)?;
+    local.replace_corp_blueprints(corp_id, &blueprints).map_err(esi_local_err)?;
+    update_expiry(local, &key, expiry, 3600);
     Ok(())
 }
 

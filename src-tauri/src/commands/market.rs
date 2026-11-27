@@ -411,10 +411,8 @@ pub async fn get_restock_rows(
     let sell_qty = local.0.get_sell_quantities().map_err(CommandError::from)?;
 
     let mut real_stock: HashMap<TypeId, u64> = local.0.get_virtual_hangar().unwrap_or_default();
-    for (char_id, _) in &characters {
-        for (type_id, qty) in local.0.get_assets(*char_id).unwrap_or_default() {
-            *real_stock.entry(type_id).or_insert(0) += qty;
-        }
+    for (type_id, qty) in local.0.get_inventory_assets().unwrap_or_default() {
+        *real_stock.entry(type_id).or_insert(0) += qty;
     }
 
     let any_wallet_scope = characters
