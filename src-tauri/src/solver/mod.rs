@@ -20,7 +20,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::types::{BuildNode, SolverInput, TypeId};
 
-pub use cost::{apply_me, get_rig_me, get_rig_te, resolve_profile_id};
+pub use cost::{apply_me, get_rig_me, get_rig_te, resolve_profile_id, structure_me, structure_te};
 pub use decrypters::DecrypterSpec;
 pub use rigs::RigSpec;
 pub use schedule::compute_schedule;
@@ -119,7 +119,7 @@ mod tests {
     };
 
     use super::{
-        cost::{apply_me, eiv, get_rig_me, get_rig_te, job_cost, resolve_profile_id},
+        cost::{apply_me, eiv, get_rig_me, get_rig_te, job_cost, resolve_profile_id, structure_me, structure_te},
         decrypters::DECRYPTERS,
         invention::{attempts_needed, calculate_probability, solve_invention_node},
         solve, SolverState,
@@ -205,8 +205,9 @@ mod tests {
             solar_system_id: None,
             job_type: crate::types::JobType::Manufacturing,
             facility_tax: 0.1,
-            space_modifier: 1.0,
-            rig_bonuses: vec![RigBonus { category_id, me_bonus: me, te_bonus: te }],
+            security: crate::types::SecurityClass::Highsec,
+            hull: crate::types::StructureHull::None,
+            rig_bonuses: vec![RigBonus { category_id, group_id: None, me_bonus: me, te_bonus: te }],
             installed_rigs: vec![],
         }
     }
@@ -214,21 +215,21 @@ mod tests {
     #[test]
     fn rig_me_matching_category() {
         let p = profile_with_rig(7, 0.02, 0.20);
-        assert!((get_rig_me(&p, 7) - 0.02).abs() < f64::EPSILON);
+        assert!((get_rig_me(&p, 7, 0) - 0.02).abs() < f64::EPSILON);
     }
 
     #[test]
     fn rig_me_no_match() {
         let p = profile_with_rig(7, 0.02, 0.20);
-        assert_eq!(get_rig_me(&p, 99), 0.0);
+        assert_eq!(get_rig_me(&p, 99, 0), 0.0);
     }
 
     #[test]
     fn rig_te_with_space_modifier() {
         let mut p = profile_with_rig(7, 0.02, 0.20);
-        p.space_modifier = 2.1; // null sec
+        p.security = crate::types::SecurityClass::Nullsec; // 2.1× for engineering rigs
         // te = 0.20 × 2.1 = 0.42
-        assert!((get_rig_te(&p, 7) - 0.42).abs() < 1e-10);
+        assert!((get_rig_te(&p, 7, 0) - 0.42).abs() < 1e-10);
     }
 
     // ── eiv ───────────────────────────────────────────────────────────────────
@@ -262,15 +263,115 @@ mod tests {
             solar_system_id: Some(30000142),
             job_type: crate::types::JobType::Manufacturing,
             facility_tax: 0.10,
-            space_modifier: 1.0,
+            security: crate::types::SecurityClass::Highsec,
+            hull: crate::types::StructureHull::None,
             rig_bonuses: vec![],
             installed_rigs: vec![],
         };
         input.structure_profiles.insert("p1".to_string(), profile);
 
-        // eiv=10_000, index=0.05, tax=0.10 → 10000 × 0.05 × 1.10 = 550
+        // eiv=10_000, index=0.05, tax=0.10, SCC 0.04 → 10000 × (0.05 + 0.10 + 0.04) = 1900
         let result = job_cost(10_000.0, ActivityId::Manufacturing, Some(30000142), Some("p1"), &input);
-        assert!((result.unwrap() - 550.0).abs() < 0.01);
+        assert!((result.unwrap() - 1900.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn job_cost_applies_structure_bonus() {
+        let mut input = empty_input(vec![]);
+        input.cost_indices.insert(
+            30000142,
+            CostIndex { solar_system_id: 30000142, manufacturing: 0.05, reaction: 0.0, invention: 0.0 },
+        );
+        let mut p = profile(crate::types::JobType::Manufacturing);
+        p.id = "sotiyo".to_string();
+        p.hull = crate::types::StructureHull::Sotiyo;
+        input.structure_profiles.insert("sotiyo".to_string(), p.clone());
+
+        // Hull bonus discounts only the index part:
+        // 10000 × (0.05 × 0.95 + 0.10 + 0.04) = 1875
+        let result = job_cost(10_000.0, ActivityId::Manufacturing, Some(30000142), Some("sotiyo"), &input);
+        assert!((result.unwrap() - 1875.0).abs() < 0.01);
+
+        // Refineries get no job cost bonus.
+        p.hull = crate::types::StructureHull::Tatara;
+        input.structure_profiles.insert("sotiyo".to_string(), p);
+        let result = job_cost(10_000.0, ActivityId::Manufacturing, Some(30000142), Some("sotiyo"), &input);
+        assert!((result.unwrap() - 1900.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn job_cost_missing_profile_uses_npc_tax() {
+        let mut input = empty_input(vec![]);
+        input.cost_indices.insert(
+            30000142,
+            CostIndex { solar_system_id: 30000142, manufacturing: 0.05, reaction: 0.0, invention: 0.0 },
+        );
+        // 10000 × (0.05 + 0.0025 + 0.04) = 925
+        let result = job_cost(10_000.0, ActivityId::Manufacturing, Some(30000142), Some("gone"), &input);
+        assert!((result.unwrap() - 925.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn hull_and_rig_bonuses_stack_multiplicatively() {
+        use crate::types::{JobType, SecurityClass, StructureHull};
+        let mut p = profile_with_rig(6, 0.02, 0.20);
+        p.hull = StructureHull::Sotiyo;
+        p.security = SecurityClass::Nullsec;
+        // ME: 1 − 0.99 × (1 − 0.042) = 0.05158
+        assert!((structure_me(&p, 6, 0) - 0.05158).abs() < 1e-9);
+        // TE: 1 − 0.70 × (1 − 0.42) = 0.594
+        assert!((structure_te(&p, 6, 0) - 0.594).abs() < 1e-9);
+        // Hull bonus applies even with no matching rig.
+        assert!((structure_me(&p, 99, 0) - 0.01).abs() < 1e-9);
+
+        // Tatara: reaction time only, no material bonus.
+        let mut t = profile(JobType::Reaction);
+        t.hull = StructureHull::Tatara;
+        assert_eq!(structure_me(&t, 4, 0), 0.0);
+        assert!((structure_te(&t, 4, 0) - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn group_limited_rig_only_matches_its_group() {
+        let mut p = profile_with_rig(4, 0.02, 0.0);
+        p.job_type = crate::types::JobType::Reaction;
+        p.rig_bonuses[0].group_id = Some(429); // Composite
+        assert!((get_rig_me(&p, 4, 429) - 0.02).abs() < 1e-9);
+        assert_eq!(get_rig_me(&p, 4, 974), 0.0); // Hybrid Polymers
+    }
+
+    #[test]
+    fn reactor_rigs_use_reaction_security_multiplier() {
+        let mut p = profile_with_rig(4, 0.02, 0.20);
+        p.job_type = crate::types::JobType::Reaction;
+        p.security = crate::types::SecurityClass::Nullsec;
+        // Reactor rigs: 1.1× in null, not the 2.1× engineering value.
+        assert!((get_rig_me(&p, 4, 0) - 0.022).abs() < 1e-10);
+    }
+
+    #[test]
+    fn legacy_space_modifier_migrates_to_security_class() {
+        use crate::types::SecurityClass;
+        let parse = |job: &str, m: f64| -> SecurityClass {
+            let json = format!(
+                r#"{{"id":"x","label":"x","solarSystemId":null,"jobType":"{job}","facilityTax":0.1,"spaceModifier":{m},"rigBonuses":[],"installedRigs":[]}}"#
+            );
+            serde_json::from_str::<StructureProfile>(&json).unwrap().security
+        };
+        assert_eq!(parse("Manufacturing", 2.1), SecurityClass::Nullsec);
+        assert_eq!(parse("Manufacturing", 1.9), SecurityClass::Lowsec);
+        assert_eq!(parse("Manufacturing", 1.0), SecurityClass::Highsec);
+        // Old UI told users to enter 0.75 for a Sotiyo's job cost: not a rig value.
+        assert_eq!(parse("Manufacturing", 0.75), SecurityClass::Highsec);
+        assert_eq!(parse("Reaction", 1.1), SecurityClass::Nullsec);
+
+        // Round-trip keeps the new fields and drops the legacy one.
+        let p: StructureProfile = serde_json::from_str(
+            r#"{"id":"x","label":"x","solarSystemId":null,"jobType":"Manufacturing","facilityTax":0.1,"security":"Lowsec","hull":"Azbel","rigBonuses":[],"installedRigs":[]}"#,
+        ).unwrap();
+        let out = serde_json::to_string(&p).unwrap();
+        assert!(out.contains(r#""security":"Lowsec""#) && out.contains(r#""hull":"Azbel""#));
+        assert!(!out.contains("spaceModifier"));
     }
 
     #[test]
@@ -288,7 +389,8 @@ mod tests {
             solar_system_id: None,
             job_type,
             facility_tax: 0.10,
-            space_modifier: 1.0,
+            security: crate::types::SecurityClass::Highsec,
+            hull: crate::types::StructureHull::None,
             rig_bonuses: vec![],
             installed_rigs: vec![],
         }
@@ -817,7 +919,8 @@ mod tests {
                 solar_system_id: Some(30000142),
                 job_type: crate::types::JobType::Manufacturing,
                 facility_tax: 0.005,
-                space_modifier: 1.0,
+                security: crate::types::SecurityClass::Highsec,
+            hull: crate::types::StructureHull::None,
                 rig_bonuses: vec![],
                 installed_rigs: vec![],
             },
@@ -830,7 +933,8 @@ mod tests {
                 solar_system_id: Some(30000144),
                 job_type: crate::types::JobType::Reaction,
                 facility_tax: 0.005,
-                space_modifier: 1.0,
+                security: crate::types::SecurityClass::Highsec,
+            hull: crate::types::StructureHull::None,
                 rig_bonuses: vec![],
                 installed_rigs: vec![],
             },

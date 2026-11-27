@@ -8,6 +8,7 @@ import { computeNodeCosts } from "../../lib/buildCost";
 import { getSystemCostInfo, getCheapestSystems } from "../../api";
 import type { BuildNode, Decision, SystemCostInfo, CheapestSystemEntry } from "../../api";
 import { fmtIsk } from "../../lib/format";
+import { effectiveCostIndex, pctLabel, profileJobCostBonus } from "../../lib/structure";
 import "./NodeDetailPanel.css";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -322,7 +323,7 @@ export function NodeDetailPanel() {
           : node.kind.type === "reaction"    ? node.kind.structureProfileId
           : null;
         const profile = profileId ? profiles.find((p) => p.id === profileId) : null;
-        const effective = idx * (profile?.spaceModifier ?? 1);
+        const effective = effectiveCostIndex(idx, profile);
         const isExpensive = effective > 0.05;
         const activity = isReaction ? "reaction" : "manufacturing";
 
@@ -336,9 +337,9 @@ export function NodeDetailPanel() {
                   {(idx * 100).toFixed(2)}%
                 </span>
               </div>
-              {profile && profile.spaceModifier !== 1 && (
+              {profileJobCostBonus(profile) > 0 && (
                 <div className="ndp-sci-effective">
-                  After {profile.spaceModifier}× modifier: {(effective * 100).toFixed(2)}%
+                  After {pctLabel(profileJobCostBonus(profile))}% structure bonus: {(effective * 100).toFixed(2)}%
                 </div>
               )}
               {isExpensive && (

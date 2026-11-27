@@ -166,12 +166,18 @@ pub enum JobType {
     Invention,
 }
 
-/// ME/TE rig bonus for a specific SDE category.
+/// ME/TE rig bonus for a specific SDE category, optionally narrowed to one
+/// group within it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RigBonus {
     /// `invCategories.categoryID` this rig applies to.
     pub category_id: i32,
+    /// `invGroups.groupID` this rig is limited to, or `None` for the whole
+    /// category. M-Set reactor rigs need this: every reaction product is in
+    /// the "Material" category, but each rig only covers one formula family.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<i32>,
     /// Material efficiency reduction as a fraction (e.g. `0.02` = 2% fewer materials).
     pub me_bonus: f64,
     /// Time efficiency reduction as a fraction (e.g. `0.20` = 20% faster jobs).
@@ -184,7 +190,7 @@ pub struct RigBonus {
 /// manual config is the primary path. The "Import from ESI" convenience flow
 /// is an optional shortcut for own-corp structures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", from = "StructureProfileRaw")]
 pub struct StructureProfile {
     /// Stable local ID (UUID string).
     pub id: String,
@@ -193,9 +199,12 @@ pub struct StructureProfile {
     pub job_type: JobType,
     /// Facility tax as a fraction (e.g. `0.10` = 10%).
     pub facility_tax: f64,
-    /// Multiplied against rig ME/TE bonus magnitudes.
-    /// ~1.0 highsec, ~1.9 lowsec, ~2.1 null/WH.
-    pub space_modifier: f64,
+    /// Security band of the structure's system. Drives the rig ME/TE bonus
+    /// multiplier — see [`SecurityClass::rig_multiplier`].
+    pub security: SecurityClass,
+    /// Structure hull. Its role bonuses (job cost, ME, TE) apply on top of
+    /// rigs — see [`StructureHull`].
+    pub hull: StructureHull,
     /// Per-category rig bonuses installed in this structure.
     ///
     /// Legacy manual-entry field. Once `installed_rigs` is non-empty, this is
@@ -208,6 +217,142 @@ pub struct StructureProfile {
     /// never touched by the picker.
     #[serde(default)]
     pub installed_rigs: Vec<TypeId>,
+}
+
+/// Security band of a structure's solar system. Upwell rig bonuses scale
+/// with it (`hiSecModifier` / `lowSecModifier` / `nullSecModifier` in SDE
+/// dogma). Wormhole space uses the null-sec values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum SecurityClass {
+    #[default]
+    Highsec,
+    Lowsec,
+    Nullsec,
+}
+
+impl SecurityClass {
+    /// Multiplier applied to a rig's base ME/TE bonus. Values from SDE dogma:
+    /// engineering rigs 1.0 / 1.9 / 2.1, reactor rigs 1.0 / 1.1 (reactor rigs
+    /// cannot be fitted in high-sec, so that band falls back to 1.0).
+    #[must_use]
+    pub fn rig_multiplier(self, job_type: JobType) -> f64 {
+        match (job_type, self) {
+            (JobType::Reaction, SecurityClass::Nullsec) => 1.1,
+            (JobType::Reaction, _) => 1.0,
+            (_, SecurityClass::Highsec) => 1.0,
+            (_, SecurityClass::Lowsec) => 1.9,
+            (_, SecurityClass::Nullsec) => 2.1,
+        }
+    }
+}
+
+/// Upwell structure hull (or none, for NPC stations). Role bonus values are
+/// from SDE dogma: `strEngCostBonus` / `strEngMatBonus` / `strEngTimeBonus`
+/// on the engineering complexes, `strReactionTimeMultiplier` on the Tatara.
+/// The Athanor has no industry role bonus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum StructureHull {
+    /// NPC station, or a structure with no industry role bonus.
+    #[default]
+    None,
+    Raitaru,
+    Azbel,
+    Sotiyo,
+    Athanor,
+    Tatara,
+}
+
+impl StructureHull {
+    fn is_engineering_complex(self) -> bool {
+        matches!(self, Self::Raitaru | Self::Azbel | Self::Sotiyo)
+    }
+
+    /// Fractional reduction of the system cost index. Engineering complexes
+    /// discount manufacturing and science jobs; refineries discount nothing.
+    #[must_use]
+    pub fn job_cost_bonus(self, job_type: JobType) -> f64 {
+        if job_type == JobType::Reaction {
+            return 0.0;
+        }
+        match self {
+            Self::Raitaru => 0.03,
+            Self::Azbel => 0.04,
+            Self::Sotiyo => 0.05,
+            _ => 0.0,
+        }
+    }
+
+    /// Fractional material reduction (1% for every engineering complex,
+    /// manufacturing only).
+    #[must_use]
+    pub fn me_bonus(self, job_type: JobType) -> f64 {
+        if job_type == JobType::Manufacturing && self.is_engineering_complex() { 0.01 } else { 0.0 }
+    }
+
+    /// Fractional job time reduction. Engineering complexes speed up
+    /// manufacturing and science; the Tatara speeds up reactions.
+    #[must_use]
+    pub fn te_bonus(self, job_type: JobType) -> f64 {
+        match (self, job_type) {
+            (Self::Tatara, JobType::Reaction) => 0.25,
+            (_, JobType::Reaction) => 0.0,
+            (Self::Raitaru, _) => 0.15,
+            (Self::Azbel, _) => 0.20,
+            (Self::Sotiyo, _) => 0.30,
+            _ => 0.0,
+        }
+    }
+}
+
+/// On-disk / IPC shape of [`StructureProfile`], tolerant of the legacy
+/// `spaceModifier` number that predates `security` + `hull`.
+///
+/// The old field was labelled in the UI as a job-cost multiplier (users
+/// entered e.g. 0.75 for a Sotiyo) but was only ever applied to rig bonuses.
+/// Values that look like a real rig multiplier map to the matching band;
+/// anything else (including those sub-1.0 job-cost entries) falls back to
+/// high-sec. The hull can't be inferred from it, so migrated profiles start
+/// with [`StructureHull::None`] until the user picks one.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StructureProfileRaw {
+    id: String,
+    label: String,
+    solar_system_id: Option<SolarSystemId>,
+    job_type: JobType,
+    facility_tax: f64,
+    #[serde(default)]
+    security: Option<SecurityClass>,
+    #[serde(default)]
+    hull: StructureHull,
+    #[serde(default)]
+    space_modifier: Option<f64>,
+    #[serde(default)]
+    rig_bonuses: Vec<RigBonus>,
+    #[serde(default)]
+    installed_rigs: Vec<TypeId>,
+}
+
+impl From<StructureProfileRaw> for StructureProfile {
+    fn from(raw: StructureProfileRaw) -> Self {
+        let security = raw.security.unwrap_or_else(|| match raw.space_modifier {
+            Some(m) if raw.job_type == JobType::Reaction && m > 1.05 => SecurityClass::Nullsec,
+            Some(m) if m >= 2.0 => SecurityClass::Nullsec,
+            Some(m) if m >= 1.5 => SecurityClass::Lowsec,
+            _ => SecurityClass::Highsec,
+        });
+        Self {
+            id: raw.id,
+            label: raw.label,
+            solar_system_id: raw.solar_system_id,
+            job_type: raw.job_type,
+            facility_tax: raw.facility_tax,
+            security,
+            hull: raw.hull,
+            rig_bonuses: raw.rig_bonuses,
+            installed_rigs: raw.installed_rigs,
+        }
+    }
 }
 
 // ─── Build tree ──────────────────────────────────────────────────────────────

@@ -151,10 +151,10 @@ fn build_industry_node(
     let resolved_profile_id =
         cost::resolve_profile_id(structure_profile_id, node_job_type, &state.input.structure_profiles);
 
-    // ── ME / rig bonus ────────────────────────────────────────────────────────
+    // ── ME / structure bonus (hull + rigs) ────────────────────────────────────────────────────────
     let rig_me = resolved_profile_id
         .and_then(|id| state.input.structure_profiles.get(id))
-        .map(|p| cost::get_rig_me(p, category_id))
+        .map(|p| cost::structure_me(p, category_id, summary.group_id))
         .unwrap_or(0.0);
 
     // ── Stock deduction ───────────────────────────────────────────────────────

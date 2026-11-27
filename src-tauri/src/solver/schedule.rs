@@ -12,7 +12,7 @@ use crate::types::{
     BuildNode, InventionJob, ManufacturingJob, NodeKind, PlanSchedule, SolverInput, TypeId,
 };
 
-use super::cost::get_rig_te;
+use super::cost::structure_te;
 
 // ─── Skill type IDs ───────────────────────────────────────────────────────────
 
@@ -124,7 +124,9 @@ fn collect_jobs(
 /// Effective manufacturing time per run in seconds.
 ///
 /// Formula:
-/// `base × (1 − te/100) × (1 − 0.04 × ind) × (1 − 0.03 × adv_ind) × (1 − rig_te)`
+/// `base × (1 − te/100) × (1 − 0.04 × ind) × (1 − 0.03 × adv_ind) × (1 − structure_te)`
+///
+/// `structure_te` combines the hull role bonus and the security-scaled rig bonus.
 ///
 /// Minimum is 1 second.
 pub(super) fn effective_mfg_time(
@@ -138,15 +140,14 @@ pub(super) fn effective_mfg_time(
         return 0;
     }
 
-    let category_id = input
+    let (category_id, group_id) = input
         .type_summaries
         .get(&type_id)
-        .map(|s| s.category_id)
-        .unwrap_or(0);
+        .map_or((0, 0), |s| (s.category_id, s.group_id));
 
-    let rig_te = structure_profile_id
+    let struct_te = structure_profile_id
         .and_then(|id| input.structure_profiles.get(id))
-        .map(|p| get_rig_te(p, category_id))
+        .map(|p| structure_te(p, category_id, group_id))
         .unwrap_or(0.0);
 
     let ind = input.character_skills.get(&SKILL_INDUSTRY).copied().unwrap_or(0) as f64;
@@ -156,7 +157,7 @@ pub(super) fn effective_mfg_time(
         * (1.0 - te as f64 * 0.01)
         * (1.0 - 0.04 * ind)
         * (1.0 - 0.03 * adv)
-        * (1.0 - rig_te);
+        * (1.0 - struct_te);
 
     eff.max(1.0).ceil() as u32
 }

@@ -11,11 +11,15 @@ import type { UpdateChannel } from "../../api/updater";
 import { listRigs } from "../../api/overrides";
 import { getIndustryCategories } from "../../api/blueprints";
 import { TypeIcon, TypePicker, SystemPicker, Select } from "../common";
-import type { JobType, IndustryCategory, MarketRegion, RigSpecEntry, StructureProfile, StructureSearchResult, SystemCostInfo, TypeSummary } from "../../api";
+import type { JobType, IndustryCategory, MarketRegion, RigSpecEntry, SecurityClass, StructureHull, StructureProfile, StructureSearchResult, SystemCostInfo, TypeSummary } from "../../api";
 import type { ThemeId } from "../../store";
 import "./SettingsPanel.css";
 import "../common/TypePicker.css";
 import { esiErrorMessage } from "../../lib/format";
+import {
+  HULL_OPTIONS, SECURITY_OPTIONS, effectiveCostIndex, hullJobCostBonus, hullMeBonus, hullTeBonus,
+  pctLabel, rigMultiplier,
+} from "../../lib/structure";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -26,7 +30,8 @@ function newProfile(): StructureProfile {
     solarSystemId: null,
     jobType: "Manufacturing",
     facilityTax: 0.1,
-    spaceModifier: 1.0,
+    security: "Highsec",
+    hull: "None",
     rigBonuses: [],
     installedRigs: [],
   };
@@ -51,13 +56,11 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
   const [categories, setCategories] = useState<IndustryCategory[]>([]);
   const [rigSpecs, setRigSpecs] = useState<RigSpecEntry[]>([]);
   const [taxInput, setTaxInput]           = useState(() => formatTaxPct(initial.facilityTax));
-  const [modifierInput, setModifierInput] = useState(() => String(initial.spaceModifier));
 
   // Keep string inputs in sync if parent switches to a different profile without unmounting.
   useEffect(() => {
     setProfile(initial);
     setTaxInput(formatTaxPct(initial.facilityTax));
-    setModifierInput(String(initial.spaceModifier));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial.id]);
 
@@ -121,6 +124,12 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
   }
 
   const valid = profile.label.trim().length > 0;
+  const rigMult = rigMultiplier(profile.security, profile.jobType);
+  const hullSummary = [
+    hullJobCostBonus(profile.hull, profile.jobType) > 0 && `−${pctLabel(hullJobCostBonus(profile.hull, profile.jobType))}% job cost`,
+    hullMeBonus(profile.hull, profile.jobType) > 0 && `−${pctLabel(hullMeBonus(profile.hull, profile.jobType))}% materials`,
+    hullTeBonus(profile.hull, profile.jobType) > 0 && `−${pctLabel(hullTeBonus(profile.hull, profile.jobType))}% job time`,
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className="sp-editor">
@@ -156,7 +165,7 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
         <div className="sp-field">
           <label
             className="sp-label"
-            title="The structure's industry tax rate. Find it in-game via the structure's Industry window. NPC stations charge 10% by default; player structures often charge 5–10%. Lower is better."
+            title="The structure's industry tax rate. Find it in-game via the structure's Industry window. NPC stations charge 0.25%. Player structures set their own rate. Lower is better."
           >
             Facility Tax %
           </label>
@@ -179,30 +188,39 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
         </div>
       </div>
 
-      <div className="sp-field">
-        <label
-          className="sp-label"
-          title="A multiplier applied to the system cost index before calculating job cost. Use 1.0 for most cases. Some structures (e.g. Sotiyo) apply a % reduction to job costs — enter that as a decimal (e.g. 0.75 for −25%). Check the structure's bonuses in-game."
-        >
-          System Cost Index Modifier
-        </label>
-        <input
-          className="sp-input"
-          type="number"
-          min={0}
-          step={0.01}
-          value={modifierInput}
-          onChange={(e) => setModifierInput(e.target.value)}
-          onBlur={(e) => {
-            const v = parseFloat(e.target.value);
-            const valid = isNaN(v) || v <= 0 ? 1 : v;
-            setField("spaceModifier", valid);
-            setModifierInput(String(valid));
-          }}
-        />
-        <span className="sp-hint">
-          1.0 = no bonus · 0.75 = Sotiyo −25% job cost · 0.85 = Azbel −15%
-        </span>
+      <div className="sp-row">
+        <div className="sp-field">
+          <label
+            className="sp-label"
+            title="Security band of the structure's system. Rig bonuses scale with it: engineering rigs ×1.0 high-sec, ×1.9 low-sec, ×2.1 null-sec and wormholes. Reactor rigs ×1.0 low-sec, ×1.1 null-sec."
+          >
+            Security
+          </label>
+          <Select
+            className="sp-select"
+            value={profile.security}
+            onChange={(val) => setField("security", val as SecurityClass)}
+            options={SECURITY_OPTIONS}
+          />
+          {profile.jobType !== "Invention" && (
+            <span className="sp-hint">Rig bonuses ×{rigMult}</span>
+          )}
+        </div>
+        <div className="sp-field">
+          <label
+            className="sp-label"
+            title="The structure type. Its role bonuses stack with rigs. Raitaru / Azbel / Sotiyo: 3 / 4 / 5% lower job cost, 1% fewer materials, and 15 / 20 / 30% faster jobs. Tatara: 25% faster reactions. Athanor and NPC stations: no bonus."
+          >
+            Structure
+          </label>
+          <Select
+            className="sp-select"
+            value={profile.hull}
+            onChange={(val) => setField("hull", val as StructureHull)}
+            options={HULL_OPTIONS}
+          />
+          {hullSummary && <span className="sp-hint">{hullSummary}</span>}
+        </div>
       </div>
 
       <div className="sp-field">
@@ -229,7 +247,7 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
           </button>
         )}
         <span className="sp-hint">
-          Determines the cost index applied to job fees. Leave blank to use the spaceModifier directly.
+          Determines the cost index applied to job fees. Leave blank to skip job cost estimates.
         </span>
       </div>
 
@@ -313,8 +331,8 @@ function ProfileEditor({ initial, onSave, onCancel }: ProfileEditorProps) {
               {[...rigPreview.entries()].map(([name, { me, te }]) => (
                 <span key={name} className="sp-rig-preview-badge">
                   {name}:
-                  {me > 0 && ` +${(me * profile.spaceModifier * 100).toFixed(1)}% ME`}
-                  {te > 0 && ` +${(te * profile.spaceModifier * 100).toFixed(1)}% TE`}
+                  {me > 0 && ` +${(me * rigMult * 100).toFixed(1)}% ME`}
+                  {te > 0 && ` +${(te * rigMult * 100).toFixed(1)}% TE`}
                 </span>
               ))}
             </div>
@@ -353,13 +371,13 @@ function ProfileCostBadge({ profile }: { profile: StructureProfile }) {
   const idx = raw;
   const pct = (idx * 100).toFixed(2);
   // Flag if cost index > 5% (roughly high-sec NPC station level) after modifier.
-  const effective = idx * profile.spaceModifier;
+  const effective = effectiveCostIndex(idx, profile);
   const isHigh = effective > 0.05;
 
   return (
     <span
       className={`sp-cost-badge${isHigh ? " sp-cost-badge-warn" : ""}`}
-      title={`${info.systemName} · Raw cost index: ${pct}% · After modifier: ${(effective * 100).toFixed(2)}%`}
+      title={`${info.systemName} · Raw cost index: ${pct}% · After structure bonus: ${(effective * 100).toFixed(2)}%`}
     >
       {info.systemName} · {pct}%
     </span>

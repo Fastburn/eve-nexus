@@ -13,7 +13,8 @@ use crate::types::{ActivityId, JobType, RigBonus, SolarSystemId, StructureProfil
 ///
 /// EVE formula: `max(runs, floor(qty_per_run × runs × (1 − 0.01 × me) × (1 − rig_me)))`
 ///
-/// `rig_me` is already pre-multiplied by the structure's space modifier.
+/// `rig_me` is the total structure reduction from [`structure_me`] (hull role
+/// bonus and security-scaled rig bonus combined).
 #[must_use]
 pub fn apply_me(qty_per_run: u64, runs: u32, me_level: u8, rig_me: f64) -> u64 {
     let runs_u64 = runs as u64;
@@ -24,25 +25,47 @@ pub fn apply_me(qty_per_run: u64, runs: u32, me_level: u8, rig_me: f64) -> u64 {
     result.max(runs_u64) // minimum 1 unit per run
 }
 
-/// Look up the effective rig ME bonus for a category within a structure profile.
-/// Returns `bonus × space_modifier`, or `0.0` if the profile has no matching rig.
+/// Look up the effective rig ME bonus for an item within a structure profile.
+/// Returns `bonus × security multiplier`, or `0.0` if the profile has no
+/// matching rig. A rig row matches when its category matches and it is
+/// either category-wide or limited to the item's group.
 #[must_use]
-pub fn get_rig_me(profile: &StructureProfile, category_id: i32) -> f64 {
-    matching_rig(&profile.rig_bonuses, category_id)
-        .map(|r| r.me_bonus * profile.space_modifier)
-        .unwrap_or(0.0)
+pub fn get_rig_me(profile: &StructureProfile, category_id: i32, group_id: i32) -> f64 {
+    matching_rigs(&profile.rig_bonuses, category_id, group_id)
+        .map(|r| r.me_bonus)
+        .fold(0.0, f64::max)
+        * profile.security.rig_multiplier(profile.job_type)
 }
 
-/// Look up the effective rig TE bonus for a category within a structure profile.
+/// Look up the effective rig TE bonus for an item within a structure profile.
 #[must_use]
-pub fn get_rig_te(profile: &StructureProfile, category_id: i32) -> f64 {
-    matching_rig(&profile.rig_bonuses, category_id)
-        .map(|r| r.te_bonus * profile.space_modifier)
-        .unwrap_or(0.0)
+pub fn get_rig_te(profile: &StructureProfile, category_id: i32, group_id: i32) -> f64 {
+    matching_rigs(&profile.rig_bonuses, category_id, group_id)
+        .map(|r| r.te_bonus)
+        .fold(0.0, f64::max)
+        * profile.security.rig_multiplier(profile.job_type)
 }
 
-fn matching_rig(rigs: &[RigBonus], category_id: i32) -> Option<&RigBonus> {
-    rigs.iter().find(|r| r.category_id == category_id)
+/// Total structure material reduction: hull role bonus and rig bonus stack
+/// multiplicatively, `1 − (1 − hull) × (1 − rig)`.
+#[must_use]
+pub fn structure_me(profile: &StructureProfile, category_id: i32, group_id: i32) -> f64 {
+    let hull = profile.hull.me_bonus(profile.job_type);
+    let rig = get_rig_me(profile, category_id, group_id);
+    1.0 - (1.0 - hull) * (1.0 - rig)
+}
+
+/// Total structure job time reduction, stacked the same way as [`structure_me`].
+#[must_use]
+pub fn structure_te(profile: &StructureProfile, category_id: i32, group_id: i32) -> f64 {
+    let hull = profile.hull.te_bonus(profile.job_type);
+    let rig = get_rig_te(profile, category_id, group_id);
+    1.0 - (1.0 - hull) * (1.0 - rig)
+}
+
+fn matching_rigs(rigs: &[RigBonus], category_id: i32, group_id: i32) -> impl Iterator<Item = &RigBonus> {
+    rigs.iter()
+        .filter(move |r| r.category_id == category_id && r.group_id.map_or(true, |g| g == group_id))
 }
 
 // ─── Profile resolution ───────────────────────────────────────────────────────
@@ -97,9 +120,17 @@ pub fn eiv(materials: &[(TypeId, u64)], adjusted_prices: &HashMap<TypeId, f64>) 
 
 // ─── Job cost ─────────────────────────────────────────────────────────────────
 
+/// SCC surcharge added to every industry job, as a fraction of EIV.
+pub const SCC_SURCHARGE: f64 = 0.04;
+
+/// Facility tax assumed when a node's profile no longer exists: the NPC
+/// station rate.
+pub const NPC_FACILITY_TAX: f64 = 0.0025;
+
 /// Compute the EVE industry job installation cost.
 ///
-/// EVE formula: `EIV × system_cost_index × (1 + facility_tax)`
+/// EVE formula:
+/// `EIV × (system_cost_index × (1 − structure_job_cost_bonus) + facility_tax + SCC_SURCHARGE)`
 ///
 /// Where:
 /// - EIV (Estimated Item Value) is the sum of adjusted prices of all input materials.
@@ -107,8 +138,12 @@ pub fn eiv(materials: &[(TypeId, u64)], adjusted_prices: &HashMap<TypeId, f64>) 
 ///   This is CCP's mechanism to prevent cost index manipulation via cheap materials.
 /// - System cost index is the fraction of total industry activity happening in that system
 ///   (updated by CCP daily). Busy systems cost more to install jobs in.
-/// - Facility tax is the structure owner's surcharge (0–25% typically). NPC stations
-///   charge a fixed 10%.
+/// - Structure job cost bonus is the hull role bonus (Raitaru 3%, Azbel 4%,
+///   Sotiyo 5%; refineries and NPC stations have none). It only discounts the
+///   cost index part.
+/// - Facility tax is the structure owner's rate, charged on EIV. NPC stations
+///   charge 0.25%.
+/// - The SCC surcharge is a flat 4% of EIV on every job.
 ///
 /// Returns `None` if no cost index is available for the given system.
 #[must_use]
@@ -129,10 +164,9 @@ pub fn job_cost(
         _ => return None,
     };
 
-    let facility_tax = structure_profile_id
-        .and_then(|id| input.structure_profiles.get(id))
-        .map(|p| p.facility_tax)
-        .unwrap_or(0.10); // Default 10% NPC tax if referenced profile was deleted.
+    let profile = structure_profile_id.and_then(|id| input.structure_profiles.get(id));
+    let facility_tax = profile.map_or(NPC_FACILITY_TAX, |p| p.facility_tax);
+    let job_cost_bonus = profile.map_or(0.0, |p| p.hull.job_cost_bonus(p.job_type));
 
-    Some(eiv_value * index_rate * (1.0 + facility_tax))
+    Some(eiv_value * (index_rate * (1.0 - job_cost_bonus) + facility_tax + SCC_SURCHARGE))
 }

@@ -118,7 +118,7 @@ const COLS: Col[] = [
   { key: "onHand",    label: "On Hand",    align: "right", tip: "Quantity already in your assets (from last ESI sync). Reduces how much you need to build or buy." },
   { key: "inJobs",    label: "In Jobs",    align: "right", tip: "Quantity currently in active industry jobs (from last ESI sync). Counted toward fulfilling the plan." },
   { key: "toBuy",     label: "To Buy",     align: "right", tip: "Quantity to purchase from the market: Needed − On Hand − In Jobs." },
-  { key: "jobCost",   label: "Job Cost",   align: "right", tip: "Estimated ISK installation fee: output value × system cost index × facility tax. Lower cost index systems (e.g. null-sec) dramatically reduce this." },
+  { key: "jobCost",   label: "Job Cost",   align: "right", tip: "Estimated ISK installation fee: estimated item value × (system cost index after structure bonus + facility tax + 4% SCC surcharge). Lower cost index systems reduce this." },
   { key: "sellPrice", label: "Est. Sell",  align: "right", tip: "Best sell order price across your configured market hubs. Sell your output here for maximum revenue." },
   { key: "avg30d",    label: "30d Avg",    align: "right", tip: "EVE's 30-day adjusted average price. Useful baseline for comparison — if Est. Sell is far above this, prices may be elevated." },
   { key: "buyVol",    label: "Buy m³",     align: "right", tip: "Packaged volume of items to purchase (Qty to Buy × unit volume). Use this to plan freight capacity." },

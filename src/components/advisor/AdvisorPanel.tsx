@@ -7,6 +7,7 @@ import { useSettingsStore, useCharactersStore } from "../../store";
 import type { BlueprintOwnership, StructureProfile, SystemCostInfo, SystemSearchResult } from "../../api";
 import { SystemPicker, SystemComparison } from "../common";
 import { esiErrorMessage } from "../../lib/format";
+import { effectiveCostIndex, pctLabel, profileJobCostBonus } from "../../lib/structure";
 import "./AdvisorPanel.css";
 
 // ── Skill definitions ─────────────────────────────────────────────────────────
@@ -212,7 +213,7 @@ function ProfileSystemRow({ profile, onSave }: ProfileRowProps) {
   }, [profile.solarSystemId]);
 
   const idx       = info ? (profile.jobType === "Reaction" ? info.reaction : info.manufacturing) : null;
-  const effective = idx !== null ? idx * profile.spaceModifier : null;
+  const effective = idx !== null ? effectiveCostIndex(idx, profile) : null;
   const isHigh    = effective !== null && effective > 0.05;
 
   function handleSelect(s: SystemSearchResult) {
@@ -243,7 +244,7 @@ function ProfileSystemRow({ profile, onSave }: ProfileRowProps) {
           {info ? (
             <span
               className={`adv-profile-idx${isHigh ? " high" : ""}`}
-              title={`Raw index: ${(idx! * 100).toFixed(2)}%${profile.spaceModifier !== 1 ? ` · After ${profile.spaceModifier}× modifier: ${(effective! * 100).toFixed(2)}%` : ""}`}
+              title={`Raw index: ${(idx! * 100).toFixed(2)}%${profileJobCostBonus(profile) > 0 ? ` · After ${pctLabel(profileJobCostBonus(profile))}% structure bonus: ${(effective! * 100).toFixed(2)}%` : ""}`}
             >
               {info.systemName} · {(effective! * 100).toFixed(2)}%
               {isHigh && <span className="adv-profile-warn"> ▲</span>}

@@ -35,9 +35,15 @@ export type JobType = "Manufacturing" | "Reaction" | "Invention";
 
 export interface RigBonus {
   categoryId: number;
+  /** Limits the bonus to one group within the category (M-Set reactor rigs). */
+  groupId?: number;
   meBonus: number;
   teBonus: number;
 }
+
+export type SecurityClass = "Highsec" | "Lowsec" | "Nullsec";
+
+export type StructureHull = "None" | "Raitaru" | "Azbel" | "Sotiyo" | "Athanor" | "Tatara";
 
 export interface StructureProfile {
   id: string;
@@ -45,7 +51,10 @@ export interface StructureProfile {
   solarSystemId: SolarSystemId | null;
   jobType: JobType;
   facilityTax: number;
-  spaceModifier: number;
+  /** Security band of the structure's system; sets the rig bonus multiplier. */
+  security: SecurityClass;
+  /** Structure hull; its role bonuses (job cost, ME, TE) apply on top of rigs. */
+  hull: StructureHull;
   rigBonuses: RigBonus[];
   installedRigs: TypeId[];
 }
