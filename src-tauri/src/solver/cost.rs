@@ -11,7 +11,10 @@ use crate::types::{ActivityId, JobType, RigBonus, SolarSystemId, StructureProfil
 
 /// Apply ME reduction to a single material across `runs` job runs.
 ///
-/// EVE formula: `max(runs, floor(qty_per_run × runs × (1 − 0.01 × me) × (1 − rig_me)))`
+/// EVE formula: `max(runs, ceil(round(qty_per_run × runs × (1 − 0.01 × me) × (1 − rig_me), 2)))`
+///
+/// The game rounds *up* after multiplying by runs; the 2-decimal round first
+/// keeps float noise (e.g. 45.000000001) from adding a unit.
 ///
 /// `rig_me` is the total structure reduction from [`structure_me`] (hull role
 /// bonus and security-scaled rig bonus combined).
@@ -21,7 +24,8 @@ pub fn apply_me(qty_per_run: u64, runs: u32, me_level: u8, rig_me: f64) -> u64 {
     let total = qty_per_run as f64 * runs as f64;
     let bp_factor = 1.0 - (me_level as f64 * 0.01);
     let rig_factor = 1.0 - rig_me.clamp(0.0, 0.99);
-    let result = (total * bp_factor * rig_factor).floor() as u64;
+    let exact = ((total * bp_factor * rig_factor) * 100.0).round() / 100.0;
+    let result = exact.ceil() as u64;
     result.max(runs_u64) // minimum 1 unit per run
 }
 

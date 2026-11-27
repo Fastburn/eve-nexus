@@ -193,8 +193,16 @@ mod tests {
     #[test]
     fn apply_me_with_rig() {
         // 100 qty, 1 run, ME 10 (0.9 factor), rig_me 0.02 (0.98 factor)
-        // floor(100 × 0.9 × 0.98) = floor(88.2) = 88
-        assert_eq!(apply_me(100, 1, 10, 0.02), 88);
+        // ceil(100 × 0.9 × 0.98) = ceil(88.2) = 89
+        assert_eq!(apply_me(100, 1, 10, 0.02), 89);
+    }
+
+    #[test]
+    fn apply_me_rounds_up() {
+        // 1 per run × 3 runs at ME 10 = 2.7, which the game rounds up to 3.
+        assert_eq!(apply_me(1, 3, 10, 0.0), 3);
+        // 7 × 10 runs × 0.9 = 63 exactly; float noise must not push it to 64.
+        assert_eq!(apply_me(7, 10, 10, 0.0), 63);
     }
 
     // ── rig bonus lookup ──────────────────────────────────────────────────────
