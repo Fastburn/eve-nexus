@@ -23,8 +23,8 @@
 //!
 //! Not modeled: Thukker faction rigs (non-uniform multiplier profile plus a
 //! secondary sub-bonus) and Invention/Research Accelerator & Cost
-//! Optimization rigs (this app already treats invention job time as
-//! unaffected by skills or rigs — see `InventionInfo::time_per_attempt_seconds`).
+//! Optimization rigs (invention time uses skills and the hull bonus only,
+//! see `invention::effective_invention_time`).
 //!
 //! `category_names` are resolved against the live SDE category list at solve
 //! time (`expand_installed_rigs`), not hardcoded IDs — a name with no match

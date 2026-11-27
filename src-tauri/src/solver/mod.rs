@@ -1112,4 +1112,38 @@ mod tests {
         // 5 runs × 10 gas, no ME reduction
         assert_eq!(reaction.inputs[0].quantity_needed, 50);
     }
+
+    // ── invention job cost and time ───────────────────────────────────────────
+
+    #[test]
+    fn invention_charges_job_cost_and_applies_time_bonuses() {
+        let mut input = invented_widget_input(1);
+        input.blueprints.get_mut(&300).unwrap().materials = vec![(301, 10)];
+        input.type_summaries.insert(301, simple_summary(301, "Iron"));
+        input.adjusted_prices.insert(301, 100.0);
+        for spec in DECRYPTERS {
+            input.adjusted_prices.insert(spec.type_id, 999_999.0);
+        }
+        input.cost_indices.insert(
+            30000142,
+            CostIndex { solar_system_id: 30000142, manufacturing: 0.0, reaction: 0.0, invention: 0.05 },
+        );
+        let mut p = profile(crate::types::JobType::Invention);
+        p.id = "inv".to_string();
+        p.solar_system_id = Some(30000142);
+        p.facility_tax = 0.0;
+        p.hull = crate::types::StructureHull::Raitaru;
+        input.structure_profiles.insert("inv".to_string(), p);
+        input.character_skills.insert(3388, 5); // Advanced Industry V
+
+        let root = &solve(&input)[0];
+        let inv = root.inputs.iter().find(|n| matches!(n.kind, NodeKind::Invention(_))).unwrap();
+        // EIV 1000 × 2% = 20, × (0.05 × (1 − 0.03 Raitaru) + 0.04 SCC) = 1.77 per attempt
+        let per_attempt = 20.0 * (0.05 * 0.97 + 0.04);
+        assert!(inv.runs > 0);
+        assert!((inv.job_cost.unwrap() - per_attempt * inv.runs as f64).abs() < 1e-6);
+        let NodeKind::Invention(info) = &inv.kind else { unreachable!() };
+        // 1200s × (1 − 0.15 Advanced Industry) × (1 − 0.15 Raitaru) = 867
+        assert_eq!(info.time_per_attempt_seconds, 867);
+    }
 }

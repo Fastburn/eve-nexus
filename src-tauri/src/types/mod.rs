@@ -81,8 +81,8 @@ pub struct InventionInfo {
     pub datacores: Vec<MaterialLine>,
     /// Optional decrypter used.
     pub decrypter: Option<DecrypterInfo>,
-    /// Base time per invention attempt in seconds (from SDE `industryActivities`).
-    /// No skill or rig modifiers apply to invention job time in EVE.
+    /// Time per invention attempt in seconds after Advanced Industry and the
+    /// hull's science time bonus.
     pub time_per_attempt_seconds: u32,
     /// The decrypter the auto-pick would have chosen (even if the applied one
     /// was an explicit user override). `None` means "no decrypter" is best.
@@ -602,7 +602,7 @@ pub struct InventionJob {
     pub probability: f64,
     /// Statistical expected BPCs = attempts × probability (may be fractional).
     pub expected_bpcs: f64,
-    /// Base time per attempt in seconds (no skill or rig modifiers in EVE).
+    /// Time per attempt in seconds after Advanced Industry and the hull bonus.
     pub time_per_attempt_seconds: u32,
 }
 

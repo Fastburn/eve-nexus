@@ -5,9 +5,12 @@
 
 use std::collections::HashMap;
 
-use crate::types::{BuildNode, Decision, DecrypterInfo, InventionBlueprint, NodeKind, TypeId, TypeSummary};
+use crate::types::{
+    ActivityId, BuildNode, Decision, DecrypterInfo, InventionBlueprint, JobType, NodeKind, SolverInput,
+    TypeId, TypeSummary,
+};
 
-use super::cost::apply_me;
+use super::cost::{self, apply_me};
 use super::decrypters::{find_decrypter, DecrypterSpec, DECRYPTERS};
 use super::node::runs_needed;
 use super::schedule::effective_mfg_time;
@@ -59,6 +62,47 @@ pub fn attempts_needed(bpcs_needed: u32, probability: f64) -> u32 {
     (bpcs_needed as f64 / probability).ceil() as u32
 }
 
+// ─── Invention time and cost ──────────────────────────────────────────────────
+
+const SKILL_ADVANCED_INDUSTRY: TypeId = 3388;
+
+/// Share of the product's EIV that an invention job is charged on.
+const INVENTION_EIV_FACTOR: f64 = 0.02;
+
+/// Time per invention attempt in seconds after Advanced Industry (3% per
+/// level, applies to science jobs) and the hull's science time bonus.
+/// Invention rigs aren't modeled, so only the hull bonus applies.
+pub(super) fn effective_invention_time(
+    inv_bp: &InventionBlueprint,
+    invention_profile_id: Option<&str>,
+    input: &SolverInput,
+) -> u32 {
+    if inv_bp.time_seconds == 0 {
+        return 0;
+    }
+    let adv = input.character_skills.get(&SKILL_ADVANCED_INDUSTRY).copied().unwrap_or(0) as f64;
+    let hull_te = invention_profile_id
+        .and_then(|id| input.structure_profiles.get(id))
+        .map_or(0.0, |p| p.hull.te_bonus(JobType::Invention));
+    let eff = inv_bp.time_seconds as f64 * (1.0 - 0.03 * adv) * (1.0 - hull_te);
+    eff.max(1.0).ceil() as u32
+}
+
+/// Install cost of one invention attempt: the job cost formula applied to
+/// 2% of the product's EIV (one run, base materials). `None` when no
+/// invention profile with a system is configured.
+fn invention_cost_per_attempt(
+    product_materials: &[(TypeId, u64)],
+    invention_profile_id: Option<&str>,
+    input: &SolverInput,
+) -> Option<f64> {
+    let system_id = invention_profile_id
+        .and_then(|id| input.structure_profiles.get(id))
+        .and_then(|p| p.solar_system_id);
+    let eiv = cost::eiv(product_materials, &input.adjusted_prices) * INVENTION_EIV_FACTOR;
+    cost::job_cost(eiv, ActivityId::Invention, system_id, invention_profile_id, input)
+}
+
 // ─── Decrypter candidate evaluation ────────────────────────────────────────────
 
 /// One evaluated decrypter option (or "none"), used by the auto-pick loop.
@@ -86,6 +130,8 @@ fn evaluate_candidate(
     product_type_id: TypeId,
     structure_profile_id: Option<&str>,
     input: &crate::types::SolverInput,
+    attempt_time_seconds: u32,
+    attempt_job_cost: f64,
 ) -> Candidate {
     let run_mod = spec.map(|s| s.run_modifier).unwrap_or(0);
     let me_mod = spec.map(|s| s.me_modifier).unwrap_or(0);
@@ -127,13 +173,14 @@ fn evaluate_candidate(
         .sum();
 
     // A decrypter's TE modifier changes the effective TE of the invented BPC,
-    // which scales every downstream manufacturing run's job duration. Invention
-    // itself has a fixed attempt duration (decrypters don't affect it), so total
+    // which scales every downstream manufacturing run's job duration. The
+    // attempt duration itself doesn't depend on the decrypter, so total
     // time = invention time (attempts × per-attempt time) + manufacturing time
     // (runs × effective per-run time at this candidate's TE).
     let mfg_time = effective_mfg_time(product_type_id, effective_te, structure_profile_id, input);
     let total_time_seconds =
-        attempts as u64 * inv_bp.time_seconds as u64 + manufacturing_runs as u64 * mfg_time as u64;
+        attempts as u64 * attempt_time_seconds as u64 + manufacturing_runs as u64 * mfg_time as u64;
+    let invention_job_cost = attempt_job_cost * attempts as f64;
 
     Candidate {
         effective_runs,
@@ -142,7 +189,7 @@ fn evaluate_candidate(
         probability,
         bpcs_needed,
         attempts,
-        total_cost: datacore_cost + decrypter_cost + material_cost,
+        total_cost: datacore_cost + decrypter_cost + material_cost + invention_job_cost,
         total_time_seconds,
     }
 }
@@ -178,10 +225,18 @@ pub fn solve_invention_node(
     let optimize_for_time = state.input.optimize_decrypters_for_time;
     let product_type_id = product_type_summary.type_id;
 
+    // `structure_profile_id` is the product's Manufacturing profile; the
+    // invention job itself runs on the Invention profile.
+    let invention_profile_id =
+        cost::resolve_profile_id(structure_profile_id, JobType::Invention, &state.input.structure_profiles);
+    let attempt_time_seconds = effective_invention_time(inv_bp, invention_profile_id, state.input);
+    let attempt_job_cost = invention_cost_per_attempt(product_materials, invention_profile_id, state.input);
+
     let eval = |spec: Option<&'static DecrypterSpec>| {
         evaluate_candidate(
             spec, inv_bp, manufacturing_runs, skills, adjusted_prices, product_materials, rig_me,
-            product_type_id, structure_profile_id, state.input,
+            product_type_id, structure_profile_id, state.input, attempt_time_seconds,
+            attempt_job_cost.unwrap_or(0.0),
         )
     };
 
@@ -316,7 +371,7 @@ pub fn solve_invention_node(
         output_te: applied.effective_te,
         datacores: datacore_lines,
         decrypter: decrypter_info,
-        time_per_attempt_seconds: inv_bp.time_seconds,
+        time_per_attempt_seconds: attempt_time_seconds,
         best_decrypter_type_id,
         is_overridden,
         isk_saved_vs_no_decrypter,
@@ -342,7 +397,7 @@ pub fn solve_invention_node(
         unit_volume: product_type_summary.volume,
         category_id: product_type_summary.category_id,
         group_id: product_type_summary.group_id,
-        job_cost: None,
+        job_cost: attempt_job_cost.map(|c| c * attempts as f64),
         inputs,
     };
 
