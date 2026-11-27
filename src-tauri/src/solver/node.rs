@@ -234,6 +234,9 @@ fn build_industry_node(
             invention_node = Some(node);
             (eff_me, eff_te)
         }
+    } else if bp.activity == ActivityId::Reaction {
+        // Reaction formulas can't be researched: always ME 0 / TE 0.
+        (0, 0)
     } else {
         // Clamp to the game's valid ME/TE ranges — an out-of-range value here
         // (e.g. from a corrupted saved plan) would otherwise flow into

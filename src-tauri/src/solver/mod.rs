@@ -1078,4 +1078,38 @@ mod tests {
         }).expect("expected invention node");
         assert_eq!(inv.runs_from_stock, 0);
     }
+
+    // ── reactions ─────────────────────────────────────────────────────────────
+
+    /// Widget 200 needs 5 × Fuel Block 201, which is reacted from 10 × 202 per run.
+    fn reaction_input() -> SolverInput {
+        let mut input = empty_input(vec![target(200, 1)]);
+        input.type_summaries.insert(200, simple_summary(200, "Widget"));
+        input.type_summaries.insert(201, simple_summary(201, "Fuel Block"));
+        input.type_summaries.insert(202, simple_summary(202, "Gas"));
+        input.blueprints.insert(200, simple_blueprint(200, vec![(201, 5)]));
+        input.blueprints.insert(
+            201,
+            BlueprintData {
+                blueprint_type_id: 1201,
+                activity: ActivityId::Reaction,
+                max_production_limit: 0,
+                output_quantity: 1,
+                time_seconds: 1000,
+                materials: vec![(202, 10)],
+                invention: None,
+            },
+        );
+        input
+    }
+
+    #[test]
+    fn reaction_ignores_default_me() {
+        let input = reaction_input();
+        let root = &solve(&input)[0];
+        let reaction = root.inputs.iter().find(|n| n.type_id == 201).unwrap();
+        assert!(matches!(reaction.kind, NodeKind::Reaction { te: 0, .. }));
+        // 5 runs × 10 gas, no ME reduction
+        assert_eq!(reaction.inputs[0].quantity_needed, 50);
+    }
 }
