@@ -152,8 +152,8 @@ pub async fn refresh_all_esi_data(
     let client = &esi.0;
     let db = &local.0;
 
-    let _ = db.delete_cache_expiry("prices");
-    let _ = db.delete_cache_expiry("cost_indices");
+    // Every fetch below respects the stored ESI cache expiry, so launching
+    // the app or pressing Refresh never re-fetches data ESI says is fresh.
 
     // Always fetch public data — these endpoints require no character auth.
     let (prices, indices) = tokio::join!(
@@ -174,17 +174,6 @@ pub async fn refresh_all_esi_data(
 
     if characters.is_empty() {
         return Ok(());
-    }
-
-    for (char_id, _) in &characters {
-        let _ = db.delete_cache_expiry_prefix(&format!("char:{char_id}:"));
-    }
-    if let Ok(regions) = db.get_market_regions() {
-        for r in &regions {
-            if let Some(sid) = r.structure_id {
-                let _ = db.delete_cache_expiry(&format!("structure:{sid}:market"));
-            }
-        }
     }
 
     let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
@@ -225,7 +214,7 @@ pub async fn refresh_all_esi_data(
 
 /// Sync one character's ESI data. Skills, jobs, orders and wallet always
 /// sync; the corp assets mode only decides whether personal and/or corp
-/// inventory (assets, blueprints) is fetched.
+/// inventory (assets, blueprints) is fetched. Every fetch respects its cache.
 async fn sync_character(
     client: &crate::esi::EsiClient,
     db: &crate::db::local::LocalDb,
@@ -266,7 +255,8 @@ async fn sync_character(
     Ok(())
 }
 
-/// Force-refresh all ESI data for a single character, bypassing the cache.
+/// Refresh ESI data for a single character. Respects cache expiry like
+/// [`refresh_all_esi_data`].
 #[tauri::command]
 pub async fn refresh_esi_data(
     character_id: CharacterId,
@@ -275,18 +265,6 @@ pub async fn refresh_esi_data(
 ) -> Result<(), CommandError> {
     let client = &esi.0;
     let db = &local.0;
-
-    let _ = db.delete_cache_expiry("prices");
-    let _ = db.delete_cache_expiry("cost_indices");
-    let _ = db.delete_cache_expiry_prefix(&format!("char:{character_id}:"));
-    let _ = db.delete_cache_expiry_prefix("corp:");
-    if let Ok(regions) = db.get_market_regions() {
-        for r in &regions {
-            if let Some(sid) = r.structure_id {
-                let _ = db.delete_cache_expiry(&format!("structure:{sid}:market"));
-            }
-        }
-    }
 
     let (prices, indices) = tokio::join!(
         endpoints::fetch_adjusted_prices(client, db),
