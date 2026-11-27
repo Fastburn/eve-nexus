@@ -42,13 +42,16 @@ pub fn compute_schedule(
 fn empty_schedule(industry_slots: u32, science_slots: u32) -> PlanSchedule {
     PlanSchedule {
         manufacturing: vec![],
+        reactions: vec![],
         invention: vec![],
         industry_slots,
         science_slots,
         derived_industry_slots: 0,
         derived_science_slots: 0,
+        derived_reaction_slots: 0,
         manufacturing_wall_clock_seconds: 0,
         invention_wall_clock_seconds: 0,
+        reaction_wall_clock_seconds: 0,
         critical_path_seconds: 0,
     }
 }

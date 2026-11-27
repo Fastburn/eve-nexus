@@ -22,6 +22,9 @@ const SKILL_LABORATORY_OPERATION: TypeId = 3359;
 const SKILL_ADVANCED_LABORATORY_OPERATION: TypeId = 3403;
 const SKILL_MASS_PRODUCTION: TypeId = 3387;
 const SKILL_ADVANCED_MASS_PRODUCTION: TypeId = 24625;
+const SKILL_REACTIONS: TypeId = 45746;
+const SKILL_MASS_REACTIONS: TypeId = 45748;
+const SKILL_ADVANCED_MASS_REACTIONS: TypeId = 45749;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -36,15 +39,15 @@ pub fn compute_schedule(
     industry_slots: u32,
     science_slots: u32,
 ) -> PlanSchedule {
-    let mut manufacturing: Vec<ManufacturingJob> = Vec::new();
-    let mut invention: Vec<InventionJob> = Vec::new();
-
+    let mut jobs = Jobs::default();
     for node in nodes {
-        collect_jobs(node, input, &mut manufacturing, &mut invention);
+        collect_jobs(node, input, &mut jobs);
     }
+    let Jobs { manufacturing, reactions, invention } = jobs;
 
     let derived_industry_slots = derive_industry_slots(&input.character_skills);
     let derived_science_slots = derive_science_slots(&input.character_skills);
+    let derived_reaction_slots = derive_reaction_slots(&input.character_skills);
 
     // Wall-clock using total-slot-seconds model:
     //   total work = Σ(runs × time_per_run)
@@ -63,37 +66,60 @@ pub fn compute_schedule(
         .sum();
     let invention_wall_clock_seconds = ceil_div(total_inv_slot_seconds, science_slots as u64);
 
-    // Invention and manufacturing can run in parallel, so critical path is
-    // whichever finishes last.
-    let critical_path_seconds = manufacturing_wall_clock_seconds.max(invention_wall_clock_seconds);
+    let total_react_slot_seconds: u64 = reactions
+        .iter()
+        .map(|j| j.runs as u64 * j.time_per_run_seconds as u64)
+        .sum();
+    let reaction_wall_clock_seconds = ceil_div(total_react_slot_seconds, derived_reaction_slots as u64);
+
+    // Each job type has its own slots and can run in parallel, so the
+    // critical path is whichever finishes last.
+    let critical_path_seconds = manufacturing_wall_clock_seconds
+        .max(invention_wall_clock_seconds)
+        .max(reaction_wall_clock_seconds);
 
     PlanSchedule {
         manufacturing,
+        reactions,
         invention,
         industry_slots,
         science_slots,
         derived_industry_slots,
         derived_science_slots,
+        derived_reaction_slots,
         manufacturing_wall_clock_seconds,
         invention_wall_clock_seconds,
+        reaction_wall_clock_seconds,
         critical_path_seconds,
     }
 }
 
 // ─── Tree walker ──────────────────────────────────────────────────────────────
 
-fn collect_jobs(
-    node: &BuildNode,
-    input: &SolverInput,
-    manufacturing: &mut Vec<ManufacturingJob>,
-    invention: &mut Vec<InventionJob>,
-) {
+#[derive(Default)]
+struct Jobs {
+    manufacturing: Vec<ManufacturingJob>,
+    reactions: Vec<ManufacturingJob>,
+    invention: Vec<InventionJob>,
+}
+
+fn collect_jobs(node: &BuildNode, input: &SolverInput, jobs: &mut Jobs) {
     if node.runs > 0 {
         match &node.kind {
             NodeKind::Manufacturing { te, structure_profile_id, .. } => {
                 let time_per_run_seconds =
                     effective_mfg_time(node.type_id, *te, structure_profile_id.as_deref(), input);
-                manufacturing.push(ManufacturingJob {
+                jobs.manufacturing.push(ManufacturingJob {
+                    type_id: node.type_id,
+                    type_name: node.type_name.clone(),
+                    runs: node.runs,
+                    time_per_run_seconds,
+                });
+            }
+            NodeKind::Reaction { structure_profile_id, .. } => {
+                let time_per_run_seconds =
+                    effective_reaction_time(node.type_id, structure_profile_id.as_deref(), input);
+                jobs.reactions.push(ManufacturingJob {
                     type_id: node.type_id,
                     type_name: node.type_name.clone(),
                     runs: node.runs,
@@ -101,7 +127,7 @@ fn collect_jobs(
                 });
             }
             NodeKind::Invention(inv) => {
-                invention.push(InventionJob {
+                jobs.invention.push(InventionJob {
                     type_id: node.type_id,
                     type_name: node.type_name.clone(),
                     attempts: node.runs,
@@ -115,7 +141,7 @@ fn collect_jobs(
     }
 
     for child in &node.inputs {
-        collect_jobs(child, input, manufacturing, invention);
+        collect_jobs(child, input, jobs);
     }
 }
 
@@ -162,6 +188,32 @@ pub(super) fn effective_mfg_time(
     eff.max(1.0).ceil() as u32
 }
 
+/// Effective reaction time per run in seconds.
+///
+/// `base × (1 − 0.04 × reactions_skill) × (1 − structure_te)`. Industry skills
+/// don't apply to reactions, and reaction formulas have no TE research.
+pub(super) fn effective_reaction_time(
+    type_id: TypeId,
+    structure_profile_id: Option<&str>,
+    input: &SolverInput,
+) -> u32 {
+    let base = input.blueprints.get(&type_id).map(|bp| bp.time_seconds).unwrap_or(0);
+    if base == 0 {
+        return 0;
+    }
+    let (category_id, group_id) = input
+        .type_summaries
+        .get(&type_id)
+        .map_or((0, 0), |s| (s.category_id, s.group_id));
+    let struct_te = structure_profile_id
+        .and_then(|id| input.structure_profiles.get(id))
+        .map(|p| structure_te(p, category_id, group_id))
+        .unwrap_or(0.0);
+    let reactions = skill(&input.character_skills, SKILL_REACTIONS) as f64;
+    let eff = base as f64 * (1.0 - 0.04 * reactions) * (1.0 - struct_te);
+    eff.max(1.0).ceil() as u32
+}
+
 // ─── Slot derivation ─────────────────────────────────────────────────────────
 
 /// Industry slots = 1 + Industry + Mass Production + Advanced Mass Production
@@ -175,6 +227,12 @@ fn derive_industry_slots(skills: &std::collections::HashMap<TypeId, u8>) -> u32 
 fn derive_science_slots(skills: &std::collections::HashMap<TypeId, u8>) -> u32 {
     1 + skill(skills, SKILL_LABORATORY_OPERATION) as u32
         + skill(skills, SKILL_ADVANCED_LABORATORY_OPERATION) as u32
+}
+
+/// Reaction slots = 1 + Mass Reactions + Advanced Mass Reactions
+fn derive_reaction_slots(skills: &std::collections::HashMap<TypeId, u8>) -> u32 {
+    1 + skill(skills, SKILL_MASS_REACTIONS) as u32
+        + skill(skills, SKILL_ADVANCED_MASS_REACTIONS) as u32
 }
 
 fn skill(skills: &std::collections::HashMap<TypeId, u8>, id: TypeId) -> u8 {

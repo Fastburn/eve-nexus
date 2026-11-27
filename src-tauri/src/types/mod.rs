@@ -611,6 +611,8 @@ pub struct InventionJob {
 #[serde(rename_all = "camelCase")]
 pub struct PlanSchedule {
     pub manufacturing: Vec<ManufacturingJob>,
+    /// Reaction jobs; they use reaction slots, separate from industry slots.
+    pub reactions: Vec<ManufacturingJob>,
     pub invention: Vec<InventionJob>,
     /// Slot counts used to compute this schedule.
     pub industry_slots: u32,
@@ -618,13 +620,17 @@ pub struct PlanSchedule {
     /// Slot counts derived from the best character's skills (used as defaults in the UI).
     pub derived_industry_slots: u32,
     pub derived_science_slots: u32,
+    /// Reaction slots derived from skills (1 + Mass Reactions + Advanced Mass Reactions).
+    pub derived_reaction_slots: u32,
     /// Wall-clock seconds to complete all manufacturing jobs.
     /// Computed as ceil(total_slot_seconds / industry_slots), where
     /// total_slot_seconds = Σ(runs × time_per_run) across all job types.
     pub manufacturing_wall_clock_seconds: u64,
     /// Wall-clock seconds to complete all invention attempts.
     pub invention_wall_clock_seconds: u64,
-    /// Critical path in seconds. Invention and manufacturing can run concurrently
-    /// so this is max(invention_wall_clock, manufacturing_wall_clock), not their sum.
+    /// Wall-clock seconds to complete all reactions, on the derived reaction slots.
+    pub reaction_wall_clock_seconds: u64,
+    /// Critical path in seconds. Each job type uses its own slots, so this is
+    /// the max of the three wall-clock times, not their sum.
     pub critical_path_seconds: u64,
 }

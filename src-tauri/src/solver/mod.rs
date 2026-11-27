@@ -122,6 +122,7 @@ mod tests {
         cost::{apply_me, eiv, get_rig_me, get_rig_te, job_cost, resolve_profile_id, structure_me, structure_te},
         decrypters::DECRYPTERS,
         invention::{attempts_needed, calculate_probability, solve_invention_node},
+        schedule::compute_schedule,
         solve, SolverState,
     };
 
@@ -1111,6 +1112,27 @@ mod tests {
         assert!(matches!(reaction.kind, NodeKind::Reaction { te: 0, .. }));
         // 5 runs × 10 gas, no ME reduction
         assert_eq!(reaction.inputs[0].quantity_needed, 50);
+    }
+
+    #[test]
+    fn schedule_lists_reactions_on_reaction_slots() {
+        let mut input = reaction_input();
+        input.character_skills.insert(45746, 5); // Reactions V: 20% faster
+        input.character_skills.insert(45748, 2); // Mass Reactions II
+        input.character_skills.insert(45749, 1); // Advanced Mass Reactions I
+        input.character_skills.insert(3380, 5); // Industry V must not affect reactions
+
+        let nodes = solve(&input);
+        let sched = compute_schedule(&nodes, &input, 1, 1);
+        assert_eq!(sched.manufacturing.len(), 1);
+        assert_eq!(sched.reactions.len(), 1);
+        let job = &sched.reactions[0];
+        assert_eq!(job.runs, 5);
+        assert_eq!(job.time_per_run_seconds, 800);
+        assert_eq!(sched.derived_reaction_slots, 4);
+        // 5 × 800 = 4000s over 4 slots
+        assert_eq!(sched.reaction_wall_clock_seconds, 1000);
+        assert!(sched.critical_path_seconds >= sched.reaction_wall_clock_seconds);
     }
 
     // ── invention job cost and time ───────────────────────────────────────────

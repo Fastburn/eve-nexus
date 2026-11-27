@@ -219,15 +219,20 @@ export interface InventionJob {
 
 export interface PlanSchedule {
   manufacturing: ManufacturingJob[];
+  /** Reaction jobs; they use reaction slots, separate from industry slots. */
+  reactions: ManufacturingJob[];
   invention: InventionJob[];
   industrySlots: number;
   scienceSlots: number;
   /** Slot counts derived from the best character's skills. */
   derivedIndustrySlots: number;
   derivedScienceSlots: number;
+  /** 1 + Mass Reactions + Advanced Mass Reactions. */
+  derivedReactionSlots: number;
   manufacturingWallClockSeconds: number;
   inventionWallClockSeconds: number;
-  /** Critical path: max(invention, manufacturing) since they run concurrently. */
+  reactionWallClockSeconds: number;
+  /** Critical path: the max of the three wall-clock times, since they run concurrently. */
   criticalPathSeconds: number;
 }
 

@@ -7,7 +7,7 @@ import { computeSchedule } from "../api";
 import { buildSolveRequest } from "../lib/solveRequest";
 import { fmtDuration, esiErrorMessage } from "../lib/format";
 import { copyText } from "../lib/export";
-import type { PlanSchedule } from "../api";
+import type { ManufacturingJob, PlanSchedule } from "../api";
 import "./ScheduleView.css";
 
 // ── Math helpers ──────────────────────────────────────────────────────────────
@@ -45,10 +45,12 @@ export function ScheduleView() {
   // Slot inputs
   const [industrySlots, setIndustrySlots] = useState(1);
   const [scienceSlots, setScienceSlots]   = useState(1);
+  const [reactionSlots, setReactionSlots] = useState(1);
 
   // Reverse "what-if" inputs: how many days the user wants to finish by
   const [targetMfgInput, setTargetMfgInput] = useState("");
   const [targetInvInput, setTargetInvInput] = useState("");
+  const [targetReactInput, setTargetReactInput] = useState("");
 
   // Per-row "Copied!" feedback
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export function ScheduleView() {
         // Seed slot inputs from character skills on first load.
         setIndustrySlots(Math.max(1, s.derivedIndustrySlots));
         setScienceSlots(Math.max(1, s.derivedScienceSlots));
+        setReactionSlots(Math.max(1, s.derivedReactionSlots));
       })
       .catch((e) => setError(esiErrorMessage(e)))
       .finally(() => setLoading(false));
@@ -99,6 +102,10 @@ export function ScheduleView() {
     () => totalSlotSeconds(schedule?.manufacturing ?? []),
     [schedule]
   );
+  const totalReactSecs = useMemo(
+    () => totalSlotSeconds(schedule?.reactions ?? []),
+    [schedule]
+  );
   const totalInvSecs = useMemo(
     () => totalSlotSeconds(schedule?.invention ?? []),
     [schedule]
@@ -107,15 +114,22 @@ export function ScheduleView() {
   // Forward: current slots → wall-clock time
   const mfgWallClock  = ceilDiv(totalMfgSecs, industrySlots);
   const invWallClock  = ceilDiv(totalInvSecs, scienceSlots);
-  const criticalPath  = Math.max(mfgWallClock, invWallClock);
-  const bottleneck    = mfgWallClock >= invWallClock ? "Manufacturing" : "Invention";
-  const balanced      = mfgWallClock === invWallClock;
+  const reactWallClock = ceilDiv(totalReactSecs, reactionSlots);
+  const criticalPath  = Math.max(mfgWallClock, invWallClock, reactWallClock);
+  const bottleneck    =
+    criticalPath === mfgWallClock ? "Manufacturing"
+    : criticalPath === reactWallClock ? "Reactions"
+    : "Invention";
 
   // Reverse: target days input → required slots
   const targetMfgDays = parseFloat(targetMfgInput);
   const targetInvDays = parseFloat(targetInvInput);
+  const targetReactDays = parseFloat(targetReactInput);
   const reqIndustrySlots = !isNaN(targetMfgDays) && targetMfgDays > 0
     ? ceilDiv(totalMfgSecs, Math.round(targetMfgDays * 86400))
+    : null;
+  const reqReactionSlots = !isNaN(targetReactDays) && targetReactDays > 0
+    ? ceilDiv(totalReactSecs, Math.round(targetReactDays * 86400))
     : null;
   const reqScienceSlots = !isNaN(targetInvDays) && targetInvDays > 0
     ? ceilDiv(totalInvSecs, Math.round(targetInvDays * 86400))
@@ -148,6 +162,13 @@ export function ScheduleView() {
 
   const hasMfg = schedule.manufacturing.length > 0;
   const hasInv = schedule.invention.length > 0;
+  const hasReact = schedule.reactions.length > 0;
+  // Only job types present in the plan compete for the critical path.
+  const activeWallClocks = [
+    hasMfg && mfgWallClock, hasReact && reactWallClock, hasInv && invWallClock,
+  ].filter((t): t is number => t !== false);
+  const multiType = activeWallClocks.length > 1;
+  const balanced = activeWallClocks.every((t) => t === criticalPath);
 
   return (
     <div className="schedule-view">
@@ -160,128 +181,40 @@ export function ScheduleView() {
 
       {/* ── Manufacturing ─────────────────────────────────────────────────── */}
       {hasMfg && (
-        <section className="schedule-section">
-          <h3 className="schedule-section-title">Manufacturing</h3>
+        <RunJobsSection
+          title="Manufacturing"
+          slotLabel="Industry slots"
+          keyPrefix="mfg"
+          jobs={schedule.manufacturing}
+          slots={industrySlots}
+          setSlots={setIndustrySlots}
+          derivedSlots={schedule.derivedIndustrySlots}
+          wallClock={mfgWallClock}
+          targetInput={targetMfgInput}
+          setTargetInput={setTargetMfgInput}
+          reqSlots={reqIndustrySlots}
+          copiedKey={copiedKey}
+          onCopy={handleCopyRow}
+        />
+      )}
 
-          <div className="schedule-slots-row">
-            <div className="schedule-slot-group">
-              <label className="schedule-label">Industry slots</label>
-              <input
-                className="schedule-slots-input"
-                type="number"
-                min={1}
-                max={99}
-                value={industrySlots}
-                onChange={(e) => setIndustrySlots(Math.max(1, parseInt(e.target.value) || 1))}
-              />
-              <span className="schedule-arrow">→</span>
-              <span className="schedule-result">{fmtDuration(mfgWallClock)}</span>
-              {schedule.derivedIndustrySlots > 0 && industrySlots !== schedule.derivedIndustrySlots && (
-                <button
-                  className="schedule-reset-btn"
-                  title={`Reset to skill-derived value (${schedule.derivedIndustrySlots})`}
-                  onClick={() => setIndustrySlots(schedule.derivedIndustrySlots)}
-                >
-                  {schedule.derivedIndustrySlots} from skills
-                </button>
-              )}
-            </div>
-
-            <div className="schedule-slot-group schedule-reverse">
-              <label className="schedule-label">Finish in</label>
-              <input
-                className="schedule-slots-input schedule-target-input"
-                type="number"
-                min={0.1}
-                step={0.5}
-                value={targetMfgInput}
-                onChange={(e) => setTargetMfgInput(e.target.value)}
-              />
-              <span className="schedule-label-unit">days</span>
-              <span className="schedule-arrow">→</span>
-              <span className="schedule-result">
-                {reqIndustrySlots !== null
-                  ? `${reqIndustrySlots} slot${reqIndustrySlots !== 1 ? "s" : ""}`
-                  : "—"}
-              </span>
-              {reqIndustrySlots !== null && reqIndustrySlots !== industrySlots && (
-                <button
-                  className="schedule-apply-btn"
-                  onClick={() => setIndustrySlots(reqIndustrySlots)}
-                >
-                  Apply
-                </button>
-              )}
-            </div>
-          </div>
-
-          <table className="schedule-jobs-table">
-            <colgroup>
-              <col />
-              <col className="schedule-col-num" />
-              <col className="schedule-col-num" />
-              <col className="schedule-col-num" />
-              <col className="schedule-col-num" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th className="schedule-num">Runs</th>
-                <th className="schedule-num">Time / run</th>
-                <th className="schedule-num">Total work</th>
-                <th className="schedule-num"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {schedule.manufacturing.map((j) => {
-                const key = `mfg-${j.typeId}`;
-                const nameKey = `mfg-name-${j.typeId}`;
-                return (
-                  <tr key={j.typeId}>
-                    <td>
-                      <span className="schedule-name-cell">
-                        <button
-                          className="schedule-name-copy-btn"
-                          title="Copy item name"
-                          onClick={() => handleCopyRow(nameKey, j.typeName)}
-                        >
-                          {copiedKey === nameKey ? (
-                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6">
-                              <polyline points="3,8.5 6.5,12 13,4.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          ) : (
-                            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.3">
-                              <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
-                              <path d="M3.5 10.5v-7a1 1 0 0 1 1-1h7" />
-                            </svg>
-                          )}
-                        </button>
-                        {j.typeName}
-                      </span>
-                    </td>
-                    <td className="schedule-num">{j.runs.toLocaleString()}</td>
-                    <td className="schedule-num">{fmtDuration(j.timePerRunSeconds)}</td>
-                    <td className="schedule-num">{fmtDuration(j.runs * j.timePerRunSeconds)}</td>
-                    <td className="schedule-num">
-                      <button
-                        className="schedule-row-copy-btn"
-                        title="Copy this row as tab-separated text"
-                        onClick={() =>
-                          handleCopyRow(
-                            key,
-                            `${j.typeName}\t${j.runs}\t${fmtDuration(j.timePerRunSeconds)}\t${fmtDuration(j.runs * j.timePerRunSeconds)}`,
-                          )
-                        }
-                      >
-                        {copiedKey === key ? "Copied!" : "Copy"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
+      {/* ── Reactions ─────────────────────────────────────────────────────── */}
+      {hasReact && (
+        <RunJobsSection
+          title="Reactions"
+          slotLabel="Reaction slots"
+          keyPrefix="react"
+          jobs={schedule.reactions}
+          slots={reactionSlots}
+          setSlots={setReactionSlots}
+          derivedSlots={schedule.derivedReactionSlots}
+          wallClock={reactWallClock}
+          targetInput={targetReactInput}
+          setTargetInput={setTargetReactInput}
+          reqSlots={reqReactionSlots}
+          copiedKey={copiedKey}
+          onCopy={handleCopyRow}
+        />
       )}
 
       {/* ── Invention ─────────────────────────────────────────────────────── */}
@@ -418,28 +351,176 @@ export function ScheduleView() {
       )}
 
       {/* ── Critical path ─────────────────────────────────────────────────── */}
-      {(hasMfg || hasInv) && (
+      {(hasMfg || hasReact || hasInv) && (
         <section className="schedule-critical">
           <span className="schedule-critical-label">Critical path</span>
           <span className="schedule-critical-time">{fmtDuration(criticalPath)}</span>
-          {(hasMfg && hasInv) && (
+          {multiType && (
             <span className="schedule-bottleneck">
               {balanced ? "balanced" : `${bottleneck} is the bottleneck`}
             </span>
           )}
-          {hasMfg && hasInv && !balanced && (
+          {multiType && !balanced && (
             <span className="schedule-overlap-note">
-              Invention and manufacturing run concurrently.
+              Each job type uses its own slots, so they run concurrently.
             </span>
           )}
         </section>
       )}
 
-      {!hasMfg && !hasInv && (
+      {!hasMfg && !hasReact && !hasInv && (
         <div className="schedule-empty">
           No industry jobs in this plan. Solve the plan first, or all items are sourced by buying.
         </div>
       )}
     </div>
+  );
+}
+
+// ── Run-based job section (manufacturing, reactions) ─────────────────────────
+
+interface RunJobsSectionProps {
+  title: string;
+  slotLabel: string;
+  keyPrefix: string;
+  jobs: ManufacturingJob[];
+  slots: number;
+  setSlots: (n: number) => void;
+  derivedSlots: number;
+  wallClock: number;
+  targetInput: string;
+  setTargetInput: (v: string) => void;
+  reqSlots: number | null;
+  copiedKey: string | null;
+  onCopy: (key: string, text: string) => void;
+}
+
+function RunJobsSection({
+  title, slotLabel, keyPrefix, jobs, slots, setSlots, derivedSlots, wallClock,
+  targetInput, setTargetInput, reqSlots, copiedKey, onCopy,
+}: RunJobsSectionProps) {
+  return (
+    <section className="schedule-section">
+      <h3 className="schedule-section-title">{title}</h3>
+
+      <div className="schedule-slots-row">
+        <div className="schedule-slot-group">
+          <label className="schedule-label">{slotLabel}</label>
+          <input
+            className="schedule-slots-input"
+            type="number"
+            min={1}
+            max={99}
+            value={slots}
+            onChange={(e) => setSlots(Math.max(1, parseInt(e.target.value) || 1))}
+          />
+          <span className="schedule-arrow">→</span>
+          <span className="schedule-result">{fmtDuration(wallClock)}</span>
+          {derivedSlots > 0 && slots !== derivedSlots && (
+            <button
+              className="schedule-reset-btn"
+              title={`Reset to skill-derived value (${derivedSlots})`}
+              onClick={() => setSlots(derivedSlots)}
+            >
+              {derivedSlots} from skills
+            </button>
+          )}
+        </div>
+
+        <div className="schedule-slot-group schedule-reverse">
+          <label className="schedule-label">Finish in</label>
+          <input
+            className="schedule-slots-input schedule-target-input"
+            type="number"
+            min={0.1}
+            step={0.5}
+            value={targetInput}
+            onChange={(e) => setTargetInput(e.target.value)}
+          />
+          <span className="schedule-label-unit">days</span>
+          <span className="schedule-arrow">→</span>
+          <span className="schedule-result">
+            {reqSlots !== null
+              ? `${reqSlots} slot${reqSlots !== 1 ? "s" : ""}`
+              : "—"}
+          </span>
+          {reqSlots !== null && reqSlots !== slots && (
+            <button
+              className="schedule-apply-btn"
+              onClick={() => setSlots(reqSlots)}
+            >
+              Apply
+            </button>
+          )}
+        </div>
+      </div>
+
+      <table className="schedule-jobs-table">
+        <colgroup>
+          <col />
+          <col className="schedule-col-num" />
+          <col className="schedule-col-num" />
+          <col className="schedule-col-num" />
+          <col className="schedule-col-num" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th className="schedule-num">Runs</th>
+            <th className="schedule-num">Time / run</th>
+            <th className="schedule-num">Total work</th>
+            <th className="schedule-num"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((j) => {
+            const key = `${keyPrefix}-${j.typeId}`;
+            const nameKey = `${keyPrefix}-name-${j.typeId}`;
+            return (
+              <tr key={j.typeId}>
+                <td>
+                  <span className="schedule-name-cell">
+                    <button
+                      className="schedule-name-copy-btn"
+                      title="Copy item name"
+                      onClick={() => onCopy(nameKey, j.typeName)}
+                    >
+                      {copiedKey === nameKey ? (
+                        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6">
+                          <polyline points="3,8.5 6.5,12 13,4.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.3">
+                          <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
+                          <path d="M3.5 10.5v-7a1 1 0 0 1 1-1h7" />
+                        </svg>
+                      )}
+                    </button>
+                    {j.typeName}
+                  </span>
+                </td>
+                <td className="schedule-num">{j.runs.toLocaleString()}</td>
+                <td className="schedule-num">{fmtDuration(j.timePerRunSeconds)}</td>
+                <td className="schedule-num">{fmtDuration(j.runs * j.timePerRunSeconds)}</td>
+                <td className="schedule-num">
+                  <button
+                    className="schedule-row-copy-btn"
+                    title="Copy this row as tab-separated text"
+                    onClick={() =>
+                      onCopy(
+                        key,
+                        `${j.typeName}\t${j.runs}\t${fmtDuration(j.timePerRunSeconds)}\t${fmtDuration(j.runs * j.timePerRunSeconds)}`,
+                      )
+                    }
+                  >
+                    {copiedKey === key ? "Copied!" : "Copy"}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }
